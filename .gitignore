@@ -1,0 +1,8 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+# Firebase config comes from the GOOGLE_SERVICES_JSON secret in CI
+google-services.json

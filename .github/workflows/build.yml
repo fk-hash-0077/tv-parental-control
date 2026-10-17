@@ -1,0 +1,38 @@
+name: Build APKs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Add Firebase config
+        if: env.GOOGLE_SERVICES_JSON != ''
+        run: |
+          printf '%s' "$GOOGLE_SERVICES_JSON" > tv/google-services.json
+          printf '%s' "$GOOGLE_SERVICES_JSON" > phone/google-services.json
+
+      - name: Build
+        run: ./gradlew --no-daemon :tv:assembleDebug :phone:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tv-guard-apks
+          path: |
+            tv/build/outputs/apk/debug/tv-debug.apk
+            phone/build/outputs/apk/debug/phone-debug.apk
