@@ -21,13 +21,26 @@ class GuardService : Service() {
     private lateinit var handler: Handler
     private lateinit var sync: CloudSync
 
+    private var lastCatalogAt = 0L
+
     private val tick = object : Runnable {
         override fun run() {
             handler.removeCallbacks(this)
             val status = Enforcer.evaluate(this@GuardService)
             sync.pushStatus(status)
+            publishCatalog()
             handler.postDelayed(this, INTERVAL_MS)
         }
+    }
+
+    /** App list and 7-day history change slowly, so they're sent every few minutes, not every tick. */
+    private fun publishCatalog() {
+        if (!sync.isConnected) return
+        val now = System.currentTimeMillis()
+        if (now - lastCatalogAt < CATALOG_INTERVAL_MS) return
+        lastCatalogAt = now
+        sync.pushApps(AppCatalog.launchable(this))
+        sync.pushHistory(UsageTracker(this).history(Store(this).config.packages, HISTORY_DAYS))
     }
 
     override fun onCreate() {
@@ -78,6 +91,8 @@ class GuardService : Service() {
         private const val CHANNEL = "guard"
         private const val NOTIFICATION_ID = 1
         private const val INTERVAL_MS = 30_000L
+        private const val CATALOG_INTERVAL_MS = 5 * 60_000L
+        private const val HISTORY_DAYS = 7
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, GuardService::class.java))

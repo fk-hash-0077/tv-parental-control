@@ -30,7 +30,6 @@ class MainActivity : AppCompatActivity() {
         val store = Store(this)
         findViewById<TextView>(R.id.code).text = Store.formatId(store.deviceId)
 
-        val config = store.config
         val status = store.lastStatus
         val owner = Policy(this).isDeviceOwner
         val usage = UsageTracker(this).hasAccess()
@@ -41,12 +40,16 @@ class MainActivity : AppCompatActivity() {
         lines += checkLine(usage, "Usage access", "run scripts/setup-tv.sh")
         lines += checkLine(cloud, "Phone sync", "add google-services.json and rebuild")
         lines += ""
-        lines += if (config.blocked) "YouTube: blocked by parent" else "YouTube: allowed"
-        lines += if (config.dailyLimitMinutes > 0) {
-            "Watched today: ${status?.usedMinutesToday ?: 0} of ${config.dailyLimitMinutes} min"
-        } else {
-            "Watched today: ${status?.usedMinutesToday ?: 0} min (no limit)"
+        lines += when (status?.reason) {
+            "bedtime" -> "Bedtime: the TV is locked"
+            "blocked" -> "Blocked apps: turned off by parent"
+            "schedule" -> "Blocked apps: outside allowed hours"
+            "limit" -> "Blocked apps: today's limit is used up"
+            else -> "Blocked apps: allowed right now"
         }
+        val used = status?.usedMinutesToday ?: 0
+        val limit = status?.limitMinutesToday ?: 0
+        lines += if (limit > 0) "Watched today: $used of $limit min" else "Watched today: $used min (no limit)"
         if (status != null) {
             lines += "Last check: " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(status.updatedAt))
         }

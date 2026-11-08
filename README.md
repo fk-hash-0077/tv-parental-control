@@ -2,10 +2,18 @@
 
 Parental controls for a Google TV / Android TV, run from a phone.
 
-- **TV app** (`tv/`) runs in the background as Device Owner. It locks YouTube when you block it
-  or when today's watch time reaches the daily limit, and unlocks it again at midnight.
-- **Phone app** (`phone/`) pairs with the TV using a code shown on screen. From the phone you
-  can turn YouTube on or off, set the daily limit, and see how much was watched today.
+- **TV app** (`tv/`) runs in the background as Device Owner. It locks the blocked apps (YouTube by
+  default) when you turn them off, outside the allowed hours, or when today's watch time runs out,
+  and it locks the whole TV at bedtime.
+- **Phone app** (`phone/`) pairs with the TV using a code shown on screen. From the phone you can:
+  - turn the blocked apps on or off
+  - give bonus time for today (+15 or +30 minutes)
+  - set separate daily limits for Mon–Fri and Sat–Sun
+  - allow blocked apps only during set hours, with different hours on weekends
+  - set a bedtime when the whole TV shows a lock screen
+  - choose which installed TV apps are blocked
+  - see a 7-day chart of watch time
+  - get a notification when today's limit is used up or the TV stops checking in
 - The two talk through a free Firebase Realtime Database, so the phone works away from home Wi-Fi.
 
 Kids use the TV's main profile. Google TV Kids profiles aren't supported, because a Device Owner
@@ -15,13 +23,18 @@ app can't manage apps inside another profile.
 
 | Piece | What it does |
 | --- | --- |
-| Device Owner | `DevicePolicyManager.setPackagesSuspended` greys out YouTube; the app also blocks its own uninstall. |
-| Watch time | `UsageStatsManager` events since local midnight for the blocked packages. |
+| Device Owner | `DevicePolicyManager.setPackagesSuspended` greys out blocked apps; the app also blocks its own uninstall. |
+| Bedtime | A full-screen lock pinned with lock task mode, so Home and Back can't leave it until bedtime ends. |
+| Watch time | `UsageStatsManager` events per local day for the blocked apps. |
 | Background | A foreground service re-checks every 30 seconds and on every change from the phone, and restarts after reboot. |
-| Sync | `devices/{code}/config` is written by the phone; `devices/{code}/status` is written by the TV. |
+| Sync | The phone writes `devices/{code}/config`; the TV writes `status`, `apps` and `history`. |
+| Alerts | The phone checks the TV's status about every 15 minutes in the background (Android's shortest interval). |
 
-Blocked by default: `com.google.android.youtube.tv` and `com.google.android.youtube`. The list is
-`config/packages` in the database if you want to add more apps.
+Rules are checked in this order: bedtime, apps turned off, outside allowed hours, daily limit.
+Weekends are Saturday and Sunday. Bonus time only counts on the day it was given.
+
+Blocked by default: `com.google.android.youtube.tv` and `com.google.android.youtube`. Change the
+list with **Choose apps** in the phone app.
 
 ## 1. Firebase setup (one time, free)
 
@@ -34,7 +47,7 @@ Blocked by default: `com.google.android.youtube.tv` and `com.google.android.yout
    named `GOOGLE_SERVICES_JSON` with the full contents of the file.
 
 Without this the apps still build, and the TV enforces its built-in defaults
-(YouTube allowed, 60 minutes a day), but the phone can't connect.
+(YouTube allowed, 60 minutes on weekdays and 120 on weekends), but the phone can't connect.
 
 ## 2. Get the APKs
 
@@ -82,4 +95,6 @@ the only way to remove it is a factory reset.
 - Anyone who sees the pairing code and has the phone app can control the TV. Keep the phone APK to yourself.
 - Watch time is counted per minute and checked every 30 seconds, so a session can run up to about
   a minute past the limit.
-- Only the apps on the list are locked. Other video apps (or a browser, if one is installed) aren't.
+- Only the apps on the list are locked, except at bedtime when the whole TV is.
+- Watch history only counts the apps currently on the blocked list.
+- A TV that is unplugged or loses Wi-Fi shows as offline, which triggers the offline alert once.

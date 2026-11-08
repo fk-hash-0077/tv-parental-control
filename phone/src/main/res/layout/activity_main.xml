@@ -7,7 +7,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="20dp">
 
         <TextView
             android:id="@+id/notice"
@@ -66,42 +66,223 @@
                 android:id="@+id/allowSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="Allow YouTube"
+                android:layout_marginTop="16dp"
+                android:text="Allow blocked apps"
                 android:textSize="18sp" />
 
+            <!-- Bonus time -->
+            <TextView style="@style/Section" android:text="Bonus time today" />
+
             <TextView
+                android:id="@+id/bonusLabel"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="Daily limit in minutes (0 for no limit)" />
+                android:layout_height="wrap_content" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal">
 
-                <EditText
-                    android:id="@+id/limitInput"
+                <Button
+                    android:id="@+id/bonus15"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="+15 min" />
+
+                <Button
+                    android:id="@+id/bonus30"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="+30 min" />
+
+                <Button
+                    android:id="@+id/bonusClear"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Clear" />
+            </LinearLayout>
+
+            <!-- Limits -->
+            <TextView style="@style/Section" android:text="Daily limit in minutes (0 for no limit)" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Mon–Fri" />
+
+                <EditText
+                    android:id="@+id/weekdayLimit"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:inputType="number"
+                    android:maxLength="4" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:text="Sat–Sun" />
+
+                <EditText
+                    android:id="@+id/weekendLimit"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
                     android:inputType="number"
                     android:maxLength="4" />
 
                 <Button
-                    android:id="@+id/saveLimit"
+                    android:id="@+id/saveLimits"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Save" />
             </LinearLayout>
+
+            <!-- Schedule -->
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/scheduleSwitch"
+                style="@style/Section"
+                android:text="Only allow during set hours" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="72dp"
+                    android:layout_height="wrap_content"
+                    android:text="Mon–Fri" />
+
+                <Button
+                    android:id="@+id/weekdayStart"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="to" />
+
+                <Button
+                    android:id="@+id/weekdayEnd"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="72dp"
+                    android:layout_height="wrap_content"
+                    android:text="Sat–Sun" />
+
+                <Button
+                    android:id="@+id/weekendStart"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="to" />
+
+                <Button
+                    android:id="@+id/weekendEnd"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- Bedtime -->
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/bedtimeSwitch"
+                style="@style/Section"
+                android:text="Bedtime: lock the whole TV" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="72dp"
+                    android:layout_height="wrap_content"
+                    android:text="Every day" />
+
+                <Button
+                    android:id="@+id/bedtimeStart"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="to" />
+
+                <Button
+                    android:id="@+id/bedtimeEnd"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- Apps -->
+            <TextView style="@style/Section" android:text="Blocked apps" />
+
+            <TextView
+                android:id="@+id/appsLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <Button
+                android:id="@+id/chooseApps"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Choose apps" />
+
+            <!-- History -->
+            <TextView style="@style/Section" android:text="Last 7 days (minutes)" />
+
+            <com.tvguard.phone.HistoryChartView
+                android:id="@+id/historyChart"
+                android:layout_width="match_parent"
+                android:layout_height="180dp" />
+
+            <!-- Alerts -->
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/alertsSwitch"
+                style="@style/Section"
+                android:text="Notify me when the limit is reached or the TV goes offline" />
 
             <Button
                 android:id="@+id/releaseButton"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="40dp"
+                android:layout_marginTop="32dp"
                 android:text="Remove protection from TV" />
 
             <Button
