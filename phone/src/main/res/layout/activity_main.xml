@@ -263,6 +263,16 @@
                 android:layout_height="wrap_content"
                 android:text="Choose apps" />
 
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/installsSwitch"
+                style="@style/Section"
+                android:text="Allow installing and updating apps" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="When off, nothing can be installed from the Play Store or the home screen. Turn it on before updating TV Guard." />
+
             <!-- History -->
             <TextView style="@style/Section" android:text="Last 7 days (minutes)" />
 

@@ -25,6 +25,7 @@ object Enforcer {
         }
 
         policy.harden()
+        policy.setInstallsAllowed(config.installsAllowed)
         val used = tracker.minutesToday(config.packages)
         val decision = Rules.decide(config, used, LocalDateTime.now())
 

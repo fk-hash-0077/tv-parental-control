@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.UserManager
 import android.util.Log
 
 /** Device Owner actions. All of them are no-ops if the app isn't Device Owner. */
@@ -57,9 +58,24 @@ class Policy(private val context: Context) {
         dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_NONE)
     }
 
+    /**
+     * Blocks or allows installing and updating apps. The Play Store can't be
+     * suspended like other apps (Android keeps it running to verify installs),
+     * so this is how installs from it are stopped.
+     */
+    fun setInstallsAllowed(allowed: Boolean) {
+        if (!isDeviceOwner) return
+        if (allowed) {
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+        } else {
+            dpm.addUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+        }
+    }
+
     /** Gives up Device Owner so the app can be uninstalled normally. */
     fun release() {
         if (!isDeviceOwner) return
+        setInstallsAllowed(true)
         dpm.setLockTaskPackages(admin, emptyArray())
         dpm.setUninstallBlocked(admin, context.packageName, false)
         @Suppress("DEPRECATION")

@@ -12,6 +12,7 @@ Parental controls for a Google TV / Android TV, run from a phone.
   - allow blocked apps only during set hours, with different hours on weekends
   - set a bedtime when the whole TV shows a lock screen
   - choose which installed TV apps are blocked
+  - stop new apps being installed or updated, including from the Play Store
   - see a 7-day chart of watch time
   - get a notification when today's limit is used up or the TV stops checking in
 - The two talk through a free Firebase Realtime Database, so the phone works away from home Wi-Fi.
@@ -40,9 +41,10 @@ list with **Choose apps** in the phone app.
 
 1. Create a project at <https://console.firebase.google.com>.
 2. Add two Android apps with package names `com.tvguard.tv` and `com.tvguard.phone`.
-3. Download `google-services.json` (it covers both apps).
-4. **Build > Authentication**: turn on the **Anonymous** sign-in provider.
-5. **Build > Realtime Database**: create a database, then paste `database.rules.json` into its Rules tab.
+3. **Build > Authentication**: turn on the **Anonymous** sign-in provider.
+4. **Build > Realtime Database**: create a database, then paste `database.rules.json` into its Rules tab.
+5. Only now download `google-services.json` (it covers both apps). Downloaded earlier, it lacks the
+   database address and the apps hang when pairing.
 6. In the GitHub repo, go to **Settings > Secrets and variables > Actions** and add a secret
    named `GOOGLE_SERVICES_JSON` with the full contents of the file.
 
@@ -96,5 +98,8 @@ the only way to remove it is a factory reset.
 - Watch time is counted per minute and checked every 30 seconds, so a session can run up to about
   a minute past the limit.
 - Only the apps on the list are locked, except at bedtime when the whole TV is.
+- The Play Store can't be locked like other apps, because Android keeps it running to check installs.
+  Use **Allow installing and updating apps** instead. While it's off, apps (YouTube included) don't
+  auto-update, and TV Guard itself can't be updated over adb until you turn it back on.
 - Watch history only counts the apps currently on the blocked list.
 - A TV that is unplugged or loses Wi-Fi shows as offline, which triggers the offline alert once.

@@ -78,6 +78,7 @@ class RulesTest {
         val config = GuardConfig(
             blocked = true, dailyLimitMinutes = 45, packages = listOf("a.b"),
             bonusDate = "2026-11-09", bonusMinutes = 15, bedtimeEnabled = true,
+            installsAllowed = false,
         )
         assertEquals(config, GuardConfig.fromMap(config.toMap()))
     }
@@ -88,5 +89,6 @@ class RulesTest {
         assertEquals(30, config.dailyLimitMinutes)
         assertEquals(emptyList<String>(), config.packages)
         assertEquals(GuardConfig().weekendLimitMinutes, config.weekendLimitMinutes)
+        assertTrue(config.installsAllowed)
     }
 }

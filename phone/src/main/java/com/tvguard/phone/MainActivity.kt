@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var weekendLimit: EditText
     private lateinit var scheduleSwitch: SwitchCompat
     private lateinit var bedtimeSwitch: SwitchCompat
+    private lateinit var installsSwitch: SwitchCompat
     private lateinit var appsLabel: TextView
     private lateinit var historyChart: HistoryChartView
     private lateinit var alertsSwitch: SwitchCompat
@@ -85,6 +86,7 @@ class MainActivity : AppCompatActivity() {
         weekendLimit = findViewById(R.id.weekendLimit)
         scheduleSwitch = findViewById(R.id.scheduleSwitch)
         bedtimeSwitch = findViewById(R.id.bedtimeSwitch)
+        installsSwitch = findViewById(R.id.installsSwitch)
         appsLabel = findViewById(R.id.appsLabel)
         historyChart = findViewById(R.id.historyChart)
         alertsSwitch = findViewById(R.id.alertsSwitch)
@@ -119,6 +121,9 @@ class MainActivity : AppCompatActivity() {
         }
         bedtimeSwitch.setOnCheckedChangeListener { button, checked ->
             if (button.isPressed) write(mapOf("bedtimeEnabled" to checked))
+        }
+        installsSwitch.setOnCheckedChangeListener { button, checked ->
+            if (button.isPressed) write(mapOf("installsAllowed" to checked))
         }
         alertsSwitch.isChecked = prefs.getBoolean("alerts", false)
         alertsSwitch.setOnCheckedChangeListener { button, checked ->
@@ -239,6 +244,7 @@ class MainActivity : AppCompatActivity() {
         allowSwitch.isChecked = !bool("blocked")
         scheduleSwitch.isChecked = bool("scheduleEnabled")
         bedtimeSwitch.isChecked = bool("bedtimeEnabled")
+        installsSwitch.isChecked = bool("installsAllowed", default = true)
         if (!weekdayLimit.hasFocus()) weekdayLimit.setText(int("dailyLimitMinutes", 60).toString())
         if (!weekendLimit.hasFocus()) weekendLimit.setText(int("weekendLimitMinutes", 120).toString())
         timeButtons.forEach { (button, key, default) -> button.text = formatTime(int(key, default)) }
@@ -362,7 +368,7 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Remove protection?")
             .setMessage(
-                "The TV unlocks everything and stops being managed, so the TV app can be uninstalled. " +
+                "The TV unlocks everything, allows app installs again, and stops being managed, so the TV app can be uninstalled. " +
                     "Turning protection back on needs a factory reset and the setup script."
             )
             .setPositiveButton("Remove") { _, _ -> write(mapOf("releaseOwner" to true)) }

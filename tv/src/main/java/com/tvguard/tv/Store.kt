@@ -29,6 +29,11 @@ data class GuardConfig(
     val bedtimeEnabled: Boolean = false,
     val bedtimeStart: Int = 21 * 60,
     val bedtimeEnd: Int = 7 * 60,
+    /**
+     * When false, nothing can be installed or updated on the TV, including from the
+     * Play Store and over adb. Turn it back on before updating TV Guard itself.
+     */
+    val installsAllowed: Boolean = true,
     /** Set from the phone to remove protection so the app can be uninstalled. */
     val releaseOwner: Boolean = false,
 ) {
@@ -47,6 +52,7 @@ data class GuardConfig(
         "bedtimeEnabled" to bedtimeEnabled,
         "bedtimeStart" to bedtimeStart,
         "bedtimeEnd" to bedtimeEnd,
+        "installsAllowed" to installsAllowed,
         "releaseOwner" to releaseOwner,
     )
 
@@ -80,6 +86,7 @@ data class GuardConfig(
                 bedtimeEnabled = bool("bedtimeEnabled", d.bedtimeEnabled),
                 bedtimeStart = int("bedtimeStart", d.bedtimeStart),
                 bedtimeEnd = int("bedtimeEnd", d.bedtimeEnd),
+                installsAllowed = bool("installsAllowed", d.installsAllowed),
                 releaseOwner = bool("releaseOwner", false),
             )
         }
