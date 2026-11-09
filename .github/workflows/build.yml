@@ -28,7 +28,7 @@ jobs:
           printf '%s' "$GOOGLE_SERVICES_JSON" > phone/google-services.json
 
       - name: Build
-        run: ./gradlew --no-daemon :tv:assembleDebug :phone:assembleDebug
+        run: ./gradlew --no-daemon :tv:testDebugUnitTest :tv:assembleDebug :phone:assembleDebug
 
       - uses: actions/upload-artifact@v4
         with:

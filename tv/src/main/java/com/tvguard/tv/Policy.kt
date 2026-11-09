@@ -47,9 +47,20 @@ class Policy(private val context: Context) {
         }
     }
 
+    /**
+     * Lets the bedtime screen pin itself with no Home, Back-to-launcher or
+     * notification access, so the TV can't be used until it lets go.
+     */
+    fun allowLockTask() {
+        if (!isDeviceOwner) return
+        dpm.setLockTaskPackages(admin, arrayOf(context.packageName))
+        dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_NONE)
+    }
+
     /** Gives up Device Owner so the app can be uninstalled normally. */
     fun release() {
         if (!isDeviceOwner) return
+        dpm.setLockTaskPackages(admin, emptyArray())
         dpm.setUninstallBlocked(admin, context.packageName, false)
         @Suppress("DEPRECATION")
         dpm.clearDeviceOwnerApp(context.packageName)

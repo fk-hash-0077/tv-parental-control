@@ -5,9 +5,10 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.Process
-import java.util.Calendar
+import java.time.LocalDate
+import java.time.ZoneId
 
-/** Measures how long the given apps were on screen since local midnight. */
+/** Measures how long the given apps were on screen, per local day. */
 class UsageTracker(private val context: Context) {
 
     fun hasAccess(): Boolean {
@@ -19,12 +20,24 @@ class UsageTracker(private val context: Context) {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    fun minutesToday(packages: Collection<String>): Int {
-        if (packages.isEmpty() || !hasAccess()) return 0
-        val usm = context.getSystemService(UsageStatsManager::class.java)
-        val start = startOfToday()
+    fun minutesToday(packages: Collection<String>): Int =
+        minutesBetween(packages, startOfDay(LocalDate.now()), System.currentTimeMillis())
+
+    /** Minutes per day for the last [days] days including today, keyed yyyy-MM-dd. */
+    fun history(packages: Collection<String>, days: Int): Map<String, Int> {
+        val today = LocalDate.now()
         val now = System.currentTimeMillis()
-        val events = usm.queryEvents(start, now)
+        return (0 until days).associate { back ->
+            val day = today.minusDays(back.toLong())
+            val end = minOf(now, startOfDay(day.plusDays(1)))
+            day.format(Rules.DATE) to minutesBetween(packages, startOfDay(day), end)
+        }
+    }
+
+    private fun minutesBetween(packages: Collection<String>, start: Long, end: Long): Int {
+        if (packages.isEmpty() || !hasAccess() || end <= start) return 0
+        val usm = context.getSystemService(UsageStatsManager::class.java)
+        val events = usm.queryEvents(start, end)
         val event = UsageEvents.Event()
 
         // Resumed activity count and since-when, per package, so switching
@@ -49,7 +62,7 @@ class UsageTracker(private val context: Context) {
                 UsageEvents.Event.MOVE_TO_BACKGROUND -> {
                     val count = openCount[pkg] ?: 0
                     if (count == 0 && pkg !in seen) {
-                        // Opened before midnight and still open after it.
+                        // Opened before the start of the range and still open after it.
                         totalMs += event.timeStamp - start
                     } else if (count == 1) {
                         totalMs += event.timeStamp - (openSince[pkg] ?: event.timeStamp)
@@ -60,15 +73,11 @@ class UsageTracker(private val context: Context) {
             }
         }
         for ((pkg, count) in openCount) {
-            if (count > 0) totalMs += now - (openSince[pkg] ?: now)
+            if (count > 0) totalMs += end - (openSince[pkg] ?: end)
         }
         return (totalMs / 60_000).toInt()
     }
 
-    private fun startOfToday(): Long = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
+    private fun startOfDay(day: LocalDate): Long =
+        day.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 }

@@ -12,15 +12,20 @@ import com.google.firebase.database.ValueEventListener
 
 /**
  * Syncs with Firebase Realtime Database at devices/{deviceId}:
- *   config  written by the phone, read here
- *   status  written here, read by the phone
+ *   config   written by the phone, read here
+ *   status   written here, read by the phone
+ *   apps     written here: apps the phone can choose to block
+ *   history  written here: {yyyy-MM-dd: minutes} for the blocked apps
  */
 class CloudSync(private val context: Context, private val onConfigChanged: () -> Unit) {
     private val store = Store(context)
-    private var ref: DatabaseReference? = null
+    @Volatile private var ref: DatabaseReference? = null
 
     val isConfigured: Boolean
         get() = FirebaseApp.getApps(context).isNotEmpty()
+
+    val isConnected: Boolean
+        get() = ref != null
 
     fun start() {
         if (!isConfigured) {
@@ -42,12 +47,13 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         ref = deviceRef
         deviceRef.child("config").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (!snapshot.exists()) {
+                val map = snapshot.value as? Map<*, *>
+                if (map == null) {
                     // First run: publish the local defaults so the phone has something to show.
-                    deviceRef.child("config").setValue(toMap(store.config))
+                    deviceRef.child("config").setValue(store.config.toMap())
                     return
                 }
-                store.config = fromSnapshot(snapshot)
+                store.config = GuardConfig.fromMap(map)
                 onConfigChanged()
             }
 
@@ -55,49 +61,29 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
                 Log.w(TAG, "Config listener cancelled: ${error.message}")
             }
         })
+        onConfigChanged()
     }
 
     fun pushStatus(status: GuardStatus) {
         val deviceRef = ref ?: return
-        deviceRef.child("status").setValue(
-            mapOf(
-                "usedMinutesToday" to status.usedMinutesToday,
-                "limitReached" to status.limitReached,
-                "suspended" to status.suspended,
-                "deviceOwner" to status.deviceOwner,
-                "usageAccess" to status.usageAccess,
-                "released" to status.released,
-                "updatedAt" to status.updatedAt,
-            )
-        )
+        deviceRef.child("status").setValue(status.toMap())
         if (status.released) {
             // Don't release again if the app is set up as Device Owner later.
             deviceRef.child("config").child("releaseOwner").setValue(false)
         }
     }
 
+    fun pushApps(apps: List<AppCatalog.App>) {
+        val deviceRef = ref ?: return
+        deviceRef.child("apps").setValue(apps.map { mapOf("pkg" to it.pkg, "label" to it.label) })
+    }
+
+    fun pushHistory(minutesByDay: Map<String, Int>) {
+        val deviceRef = ref ?: return
+        deviceRef.child("history").updateChildren(minutesByDay.mapValues { it.value as Any })
+    }
+
     companion object {
         private const val TAG = "TvGuardSync"
-
-        fun toMap(config: GuardConfig) = mapOf(
-            "blocked" to config.blocked,
-            "dailyLimitMinutes" to config.dailyLimitMinutes,
-            "packages" to config.packages,
-            "releaseOwner" to config.releaseOwner,
-        )
-
-        fun fromSnapshot(snapshot: DataSnapshot): GuardConfig {
-            val defaults = GuardConfig()
-            val packages = snapshot.child("packages").children
-                .mapNotNull { it.getValue(String::class.java) }
-                .filter { it.isNotBlank() }
-            return GuardConfig(
-                blocked = snapshot.child("blocked").getValue(Boolean::class.java) ?: defaults.blocked,
-                dailyLimitMinutes = (snapshot.child("dailyLimitMinutes").value as? Number)?.toInt()
-                    ?: defaults.dailyLimitMinutes,
-                packages = packages.ifEmpty { defaults.packages },
-                releaseOwner = snapshot.child("releaseOwner").getValue(Boolean::class.java) ?: false,
-            )
-        }
     }
 }
