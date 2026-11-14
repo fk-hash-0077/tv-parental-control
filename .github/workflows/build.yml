@@ -100,7 +100,7 @@ jobs:
             *.firebasedatabase.app) region=$(echo "$host" | cut -d. -f2) ;;
             *) region=us-central1 ;;
           esac
-          printf 'DB_INSTANCE=%s\nDB_REGION=%s\n' "$instance" "$region" > functions/.env
+          printf '{"instance":"%s","region":"%s"}\n' "$instance" "$region" > functions/database.json
           echo "Deploying to $project (database $instance in $region)"
           (cd functions && npm ci --no-audit --no-fund)
           npx --yes firebase-tools@13.35.1 deploy --only functions,database \

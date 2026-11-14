@@ -13,11 +13,17 @@ const { localParts, weeklyReport } = require("./report");
 
 admin.initializeApp();
 
-// Written by the workflow from google-services.json, so the triggers watch the right database.
-const db = {
-  instance: process.env.DB_INSTANCE || undefined,
-  region: process.env.DB_REGION || "us-central1",
-};
+// Written by the workflow from google-services.json (functions/database.json), so the triggers
+// watch the right database. Read from a file because the deploy tool analyses this code
+// before it loads .env files.
+const db = (() => {
+  try {
+    const config = require("./database.json");
+    return { instance: config.instance || undefined, region: config.region || "us-central1" };
+  } catch (e) {
+    return { instance: undefined, region: "us-central1" };
+  }
+})();
 const OFFLINE_AFTER_MS = 20 * 60 * 1000;
 
 /** Sends a data message to every approved phone of a TV, and forgets tokens that no longer work. */

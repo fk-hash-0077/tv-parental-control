@@ -7,4 +7,4 @@ local.properties
 # Firebase config comes from the GOOGLE_SERVICES_JSON secret in CI
 google-services.json
 functions/node_modules/
-functions/.env
+functions/database.json
