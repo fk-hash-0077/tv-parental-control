@@ -4,7 +4,7 @@
   "description": "Instant notifications for TV Guard",
   "main": "index.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",

@@ -28,7 +28,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Test cloud functions
         working-directory: functions
@@ -80,7 +80,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: env.FIREBASE_SERVICE_ACCOUNT != '' && env.GOOGLE_SERVICES_JSON != ''
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Deploy
         if: env.FIREBASE_SERVICE_ACCOUNT != '' && env.GOOGLE_SERVICES_JSON != ''
