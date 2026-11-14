@@ -42,14 +42,14 @@ class MainActivity : AppCompatActivity() {
         lines += ""
         lines += when (status?.reason) {
             "bedtime" -> "Bedtime: the TV is locked"
-            "blocked" -> "Blocked apps: turned off by parent"
-            "schedule" -> "Blocked apps: outside allowed hours"
-            "limit" -> "Blocked apps: today's limit is used up"
-            else -> "Blocked apps: allowed right now"
+            "schedule" -> "Outside allowed hours: the TV is locked"
+            "limit" -> "Today's TV time is used up: the TV is locked"
+            else -> if (status?.appsAllowed == true) "Blocked apps: unblocked for today" else "Blocked apps: blocked"
         }
         val used = status?.usedMinutesToday ?: 0
         val limit = status?.limitMinutesToday ?: 0
-        lines += if (limit > 0) "Watched today: $used of $limit min" else "Watched today: $used min (no limit)"
+        lines += if (limit > 0) "TV time today: $used of $limit min" else "TV time today: $used min (no limit)"
+        lines += "Version ${BuildConfig.VERSION_CODE}"
         if (status != null) {
             lines += "Last check: " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(status.updatedAt))
         }

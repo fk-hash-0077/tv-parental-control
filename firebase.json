@@ -1,0 +1,10 @@
+{
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20",
+    "ignore": ["node_modules", "*.test.js", ".env.local"]
+  }
+}

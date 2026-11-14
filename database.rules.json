@@ -1,9 +1,40 @@
 {
   "rules": {
     "devices": {
-      "$deviceId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+      "$id": {
+        ".read": "auth != null && (data.child('tvUid').val() === auth.uid || data.child('parents').child(auth.uid).exists())",
+
+        "tvUid": {
+          ".read": "auth != null",
+          ".write": "auth != null && (!data.exists() || data.val() === auth.uid) && newData.val() === auth.uid"
+        },
+        "parents": {
+          ".write": "auth != null && (root.child('devices').child($id).child('tvUid').val() === auth.uid || data.child(auth.uid).exists())",
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && (root.child('devices').child($id).child('tvUid').val() === auth.uid || data.parent().child(auth.uid).exists())"
+          }
+        },
+        "pending": {
+          "$uid": {
+            ".write": "auth != null && root.child('devices').child($id).child('tvUid').exists() && (auth.uid === $uid || root.child('devices').child($id).child('tvUid').val() === auth.uid || root.child('devices').child($id).child('parents').child(auth.uid).exists())"
+          }
+        },
+        "tokens": {
+          ".write": "auth != null && root.child('devices').child($id).child('tvUid').val() === auth.uid",
+          "$uid": {
+            ".write": "auth != null && root.child('devices').child($id).child('parents').child(auth.uid).exists() && (auth.uid === $uid || !newData.exists())"
+          }
+        },
+        "config": {
+          ".write": "auth != null && (root.child('devices').child($id).child('tvUid').val() === auth.uid || root.child('devices').child($id).child('parents').child(auth.uid).exists())"
+        },
+        "requestAnswer": {
+          ".write": "auth != null && root.child('devices').child($id).child('parents').child(auth.uid).exists()"
+        },
+        "$tvOwned": {
+          ".write": "auth != null && root.child('devices').child($id).child('tvUid').val() === auth.uid && $tvOwned !== 'tvUid' && $tvOwned !== 'parents' && $tvOwned !== 'pending' && $tvOwned !== 'tokens' && $tvOwned !== 'config' && $tvOwned !== 'requestAnswer'"
+        }
       }
     }
   }

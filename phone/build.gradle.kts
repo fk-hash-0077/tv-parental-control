@@ -17,8 +17,14 @@ android {
         applicationId = "com.tvguard.phone"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI sets BUILD_NUMBER to the workflow run number, so every build can
+        // replace the previous one and the TV can tell which release is newer.
+        val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = buildNumber
+        versionName = "0.2.$buildNumber"
+        // Where "Get newest phone app" points.
+        val repo = System.getenv("GITHUB_REPOSITORY") ?: "fk-hash-0077/tv-parental-control"
+        buildConfigField("String", "RELEASES_REPO", "\"$repo\"")
     }
 
     signingConfigs {
@@ -43,6 +49,10 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -58,5 +68,6 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-database-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation("androidx.biometric:biometric:1.1.0")
 }

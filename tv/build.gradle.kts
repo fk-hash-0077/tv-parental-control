@@ -17,8 +17,14 @@ android {
         applicationId = "com.tvguard.tv"
         minSdk = 28
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI sets BUILD_NUMBER to the workflow run number, so every build can
+        // replace the previous one and the TV can tell which release is newer.
+        val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = buildNumber
+        versionName = "0.2.$buildNumber"
+        // Where "Update TV" looks for new releases.
+        val repo = System.getenv("GITHUB_REPOSITORY") ?: "fk-hash-0077/tv-parental-control"
+        buildConfigField("String", "RELEASES_REPO", "\"$repo\"")
     }
 
     signingConfigs {
@@ -41,6 +47,10 @@ android {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {

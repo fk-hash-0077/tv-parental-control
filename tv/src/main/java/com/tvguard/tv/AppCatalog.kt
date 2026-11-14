@@ -21,4 +21,12 @@ object AppCatalog {
             .map { App(it.packageName, pm.getApplicationLabel(it).toString()) }
             .sortedBy { it.label.lowercase() }
     }
+
+    /** Display names for [packages]; anything not installed keeps its package name. */
+    fun labels(context: Context, packages: Collection<String>): Map<String, String> {
+        val pm = context.packageManager
+        return packages.associateWith { pkg ->
+            runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+        }
+    }
 }

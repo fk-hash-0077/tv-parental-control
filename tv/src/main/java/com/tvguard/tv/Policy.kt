@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.UserManager
 import android.util.Log
 
 /** Device Owner actions. All of them are no-ops if the app isn't Device Owner. */
@@ -16,10 +17,11 @@ class Policy(private val context: Context) {
     val isDeviceOwner: Boolean
         get() = dpm.isDeviceOwnerApp(context.packageName)
 
-    /** Stops kids from uninstalling the app. Safe to call repeatedly. */
+    /** Stops kids from uninstalling the app or changing the clock. Safe to call repeatedly. */
     fun harden() {
         if (!isDeviceOwner) return
         dpm.setUninstallBlocked(admin, context.packageName, true)
+        lockClock()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             dpm.setPermissionGrantState(
                 admin, context.packageName, Manifest.permission.POST_NOTIFICATIONS,
@@ -48,7 +50,26 @@ class Policy(private val context: Context) {
     }
 
     /**
-     * Lets the bedtime screen pin itself with no Home, Back-to-launcher or
+     * Keeps the date, time and time zone automatic and unchangeable, so moving the clock
+     * can't reset today's limit or skip bedtime.
+     */
+    private fun lockClock() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                dpm.setAutoTimeEnabled(admin, true)
+                dpm.setAutoTimeZoneEnabled(admin, true)
+            } else {
+                @Suppress("DEPRECATION")
+                dpm.setAutoTimeRequired(admin, true)
+            }
+            dpm.addUserRestriction(admin, UserManager.DISALLOW_CONFIG_DATE_TIME)
+        } catch (e: Exception) {
+            Log.w(TAG, "Couldn't lock the clock", e)
+        }
+    }
+
+    /**
+     * Lets the lock screen pin itself with no Home, Back-to-launcher or
      * notification access, so the TV can't be used until it lets go.
      */
     fun allowLockTask() {
@@ -57,9 +78,25 @@ class Policy(private val context: Context) {
         dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_NONE)
     }
 
+    /**
+     * Blocks or allows installing and updating apps. The Play Store can't be
+     * suspended like other apps (Android keeps it running to verify installs),
+     * so this is how installs from it are stopped.
+     */
+    fun setInstallsAllowed(allowed: Boolean) {
+        if (!isDeviceOwner) return
+        if (allowed) {
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+        } else {
+            dpm.addUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+        }
+    }
+
     /** Gives up Device Owner so the app can be uninstalled normally. */
     fun release() {
         if (!isDeviceOwner) return
+        setInstallsAllowed(true)
+        dpm.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_DATE_TIME)
         dpm.setLockTaskPackages(admin, emptyArray())
         dpm.setUninstallBlocked(admin, context.packageName, false)
         @Suppress("DEPRECATION")
