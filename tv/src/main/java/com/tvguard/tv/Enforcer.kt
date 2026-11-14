@@ -1,33 +1,46 @@
 package com.tvguard.tv
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
 import java.time.LocalDateTime
+import java.time.ZoneId
 
-/** Applies the current config: suspends the blocked apps, or lets them run, and starts or ends bedtime. */
+/** Applies the current config: suspends the listed apps, locks the whole TV, and warns before a lock. */
 object Enforcer {
 
-    fun evaluate(context: Context): GuardStatus {
+    class Result(val status: GuardStatus, val usage: UsageTracker.Usage)
+
+    /** How long installs stay allowed while TV Guard updates itself. */
+    const val UPDATE_WINDOW_MS = 10 * 60_000L
+
+    fun evaluate(context: Context): Result {
         val store = Store(context)
         val policy = Policy(context)
         val tracker = UsageTracker(context)
         val config = store.config
+        val nowMillis = System.currentTimeMillis()
 
         if (config.releaseOwner) {
-            store.bedtimeActive = false
+            store.lockReason = ""
             policy.setSuspended(store.suspended, false)
             store.suspended = emptySet()
             policy.release()
-            return GuardStatus(
-                usedMinutesToday = 0, limitMinutesToday = 0, limitReached = false, reason = "",
-                bedtime = false, suspended = false, deviceOwner = policy.isDeviceOwner,
-                usageAccess = tracker.hasAccess(), released = true, updatedAt = System.currentTimeMillis(),
-            ).also { store.lastStatus = it }
+            val status = status(
+                context, store, config, used = 0, limit = 0, limitReached = false, reason = "",
+                appsAllowed = true, overrideUntil = 0, suspended = false, released = true,
+            )
+            return Result(status, UsageTracker.Usage(0, emptyMap()))
         }
 
         policy.harden()
-        policy.setInstallsAllowed(config.installsAllowed)
-        val used = tracker.minutesToday(config.packages)
-        val decision = Rules.decide(config, used, LocalDateTime.now())
+        val updating = nowMillis - store.updatingSince in 0 until UPDATE_WINDOW_MS
+        policy.setInstallsAllowed(config.installsAllowed || updating)
+
+        val usage = tracker.today()
+        val overrideUntil = maxOf(config.overrideUntil, store.localOverrideUntil)
+        val decision = Rules.decide(config, usage.totalMinutes, LocalDateTime.now(), overrideUntil, nowMillis)
 
         val target = if (decision.blockApps) {
             config.packages.filter { policy.isInstalled(it) }.toSet()
@@ -38,23 +51,80 @@ object Enforcer {
         val failed = policy.setSuspended(target, true)
         store.suspended = target - failed
 
-        store.bedtimeActive = decision.bedtime && policy.isDeviceOwner
-        if (store.bedtimeActive) {
+        val lock = decision.lockTv && policy.isDeviceOwner
+        store.lockReason = if (lock) decision.reason else ""
+        if (lock) {
             policy.allowLockTask()
             LockActivity.show(context)
+        } else {
+            maybeWarn(context, store, decision.minutesToLock, nowMillis)
         }
 
+        val status = status(
+            context, store, config,
+            used = usage.totalMinutes,
+            limit = decision.limitMinutes,
+            limitReached = decision.limitReached,
+            reason = store.lockReason,
+            appsAllowed = Rules.appsAllowed(config, LocalDateTime.now()),
+            overrideUntil = if (decision.overridden) overrideUntil else 0,
+            suspended = target.isNotEmpty() && failed.isEmpty(),
+            released = false,
+        )
+        return Result(status, usage)
+    }
+
+    /** Shows "TV locks in N minutes" once, 5 minutes or less before any whole-TV lock. */
+    private fun maybeWarn(context: Context, store: Store, minutesToLock: Int?, nowMillis: Long) {
+        if (minutesToLock == null || minutesToLock > WARN_MINUTES) return
+        if (nowMillis - store.lastWarnedAt < WARN_REPEAT_MS) return
+        store.lastWarnedAt = nowMillis
+        val text = if (minutesToLock <= 1) {
+            "TV Guard: the TV locks in 1 minute"
+        } else {
+            "TV Guard: the TV locks in $minutesToLock minutes"
+        }
+        val main = Handler(Looper.getMainLooper())
+        // A long toast lasts about 3.5 seconds, so show it a few times in a row.
+        repeat(3) { i ->
+            main.postDelayed({ Toast.makeText(context.applicationContext, text, Toast.LENGTH_LONG).show() }, i * 3_600L)
+        }
+    }
+
+    private fun status(
+        context: Context,
+        store: Store,
+        config: GuardConfig,
+        used: Int,
+        limit: Int,
+        limitReached: Boolean,
+        reason: String,
+        appsAllowed: Boolean,
+        overrideUntil: Long,
+        suspended: Boolean,
+        released: Boolean,
+    ): GuardStatus {
+        val policy = Policy(context)
         return GuardStatus(
             usedMinutesToday = used,
-            limitMinutesToday = decision.limitMinutes,
-            limitReached = decision.limitReached,
-            reason = decision.reason,
-            bedtime = store.bedtimeActive,
-            suspended = target.isNotEmpty() && failed.isEmpty(),
+            limitMinutesToday = limit,
+            limitReached = limitReached,
+            reason = reason,
+            locked = reason.isNotEmpty(),
+            appsAllowed = appsAllowed,
+            overrideUntil = overrideUntil,
+            suspended = suspended,
             deviceOwner = policy.isDeviceOwner,
-            usageAccess = tracker.hasAccess(),
-            released = false,
+            usageAccess = UsageTracker(context).hasAccess(),
+            released = released,
+            versionCode = BuildConfig.VERSION_CODE,
+            update = store.updateState,
+            pongAt = config.pingAt,
+            timeZone = ZoneId.systemDefault().id,
             updatedAt = System.currentTimeMillis(),
         ).also { store.lastStatus = it }
     }
+
+    private const val WARN_MINUTES = 5
+    private const val WARN_REPEAT_MS = 10 * 60_000L
 }

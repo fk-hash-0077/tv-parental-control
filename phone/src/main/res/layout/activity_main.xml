@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+<ScrollView
+    android:id="@+id/content"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -47,6 +52,37 @@
                 android:text="Pair with TV" />
         </LinearLayout>
 
+        <!-- Waiting for another phone to approve this one -->
+        <LinearLayout
+            android:id="@+id/waitSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Waiting for approval"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="A phone that's already paired with this TV needs to approve this one. It gets a notification, or can approve from TV Guard under Paired phones."
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/cancelWait"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Cancel" />
+        </LinearLayout>
+
         <!-- Controls -->
         <LinearLayout
             android:id="@+id/controlSection"
@@ -56,9 +92,94 @@
             android:visibility="gone">
 
             <TextView
+                android:id="@+id/connection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/syncResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/syncNow"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Sync now" />
+
+                <Button
+                    android:id="@+id/unlockCode"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Unlock code" />
+            </LinearLayout>
+
+            <!-- The TV is asking for more time -->
+            <LinearLayout
+                android:id="@+id/requestSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/requestLabel"
+                    style="@style/Section"
+                    android:text="The TV is asking for more time" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/request15"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="+15 min" />
+
+                    <Button
+                        android:id="@+id/request30"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="+30 min" />
+
+                    <Button
+                        android:id="@+id/requestNo"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="No" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Phones waiting to be approved -->
+            <LinearLayout
+                android:id="@+id/pendingSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
+            <TextView
                 android:id="@+id/status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
                 android:lineSpacingExtra="4dp"
                 android:textSize="16sp" />
 
@@ -67,8 +188,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="Allow blocked apps"
-                android:textSize="18sp" />
+                android:text="Unblock YouTube, Roblox and other blocked apps today"
+                android:textSize="17sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="They block again at midnight." />
 
             <!-- Bonus time -->
             <TextView style="@style/Section" android:text="Bonus time today" />
@@ -106,7 +232,7 @@
             </LinearLayout>
 
             <!-- Limits -->
-            <TextView style="@style/Section" android:text="Daily limit in minutes (0 for no limit)" />
+            <TextView style="@style/Section" android:text="Total TV time per day, in minutes (0 for no limit)" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -154,7 +280,7 @@
             <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/scheduleSwitch"
                 style="@style/Section"
-                android:text="Only allow during set hours" />
+                android:text="Allowed hours: lock the TV outside them" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -271,9 +397,17 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="When off, nothing can be installed from the Play Store or the home screen. Turn it on before updating TV Guard." />
+                android:text="When off, nothing can be installed from the Play Store or the home screen. TV Guard can still update itself." />
 
-            <!-- History -->
+            <!-- Watch time -->
+            <TextView style="@style/Section" android:text="TV time today" />
+
+            <TextView
+                android:id="@+id/usageList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineSpacingExtra="4dp" />
+
             <TextView style="@style/Section" android:text="Last 7 days (minutes)" />
 
             <com.tvguard.phone.HistoryChartView
@@ -281,11 +415,55 @@
                 android:layout_width="match_parent"
                 android:layout_height="180dp" />
 
-            <!-- Alerts -->
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/alertsSwitch"
-                style="@style/Section"
-                android:text="Notify me when the limit is reached or the TV goes offline" />
+            <!-- Emergency code -->
+            <TextView style="@style/Section" android:text="Emergency unlock code" />
+
+            <TextView
+                android:id="@+id/emergencyLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <Button
+                android:id="@+id/emergencyButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Set emergency code" />
+
+            <!-- Updates -->
+            <TextView style="@style/Section" android:text="TV Guard on the TV" />
+
+            <TextView
+                android:id="@+id/updateLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/updateTv"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Update TV" />
+
+                <Button
+                    android:id="@+id/phoneUpdate"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Get newest phone app" />
+            </LinearLayout>
+
+            <!-- Phones -->
+            <TextView style="@style/Section" android:text="Paired phones" />
+
+            <LinearLayout
+                android:id="@+id/phonesList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
 
             <Button
                 android:id="@+id/releaseButton"
@@ -304,3 +482,37 @@
         </LinearLayout>
     </LinearLayout>
 </ScrollView>
+
+    <!-- Shown until the phone's own fingerprint or screen lock is confirmed. -->
+    <LinearLayout
+        android:id="@+id/lockOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="32dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔒"
+            android:textSize="56sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="TV Guard is locked"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/unlockButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Unlock" />
+    </LinearLayout>
+</FrameLayout>
