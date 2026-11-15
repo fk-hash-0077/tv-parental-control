@@ -148,4 +148,17 @@ class RulesTest {
         assertEquals(GuardConfig.DEFAULT_PACKAGES, config.packages)
         assertFalse(config.installsAllowed)
     }
+
+    @Test
+    fun lockNowLocksTheWholeTvUntilTurnedOff() {
+        val config = GuardConfig(lockNow = true, dailyLimitMinutes = 0)
+        val locked = Rules.decide(config, 0, monday(16))
+        assertTrue(locked.lockTv)
+        assertEquals("manual", locked.reason)
+        assertFalse(Rules.decide(config.copy(lockNow = false), 0, monday(16)).lockTv)
+        // An unlock code still works on top of it.
+        val now = monday(16)
+        val overridden = Rules.decide(config, 0, now, millis(now) + 60_000, millis(now))
+        assertFalse(overridden.lockTv)
+    }
 }

@@ -118,6 +118,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
             listen(deviceRef.child("parents")) { snapshot ->
                 parents = snapshot.children.mapNotNull { it.key }.toSet()
                 parentsLoaded = true
+                store.paired = parents.isNotEmpty()
                 approveFirstPhone()
             }
             listen(deviceRef.child("pending")) { snapshot ->

@@ -13,11 +13,9 @@ import java.util.Locale
 class HistoryChartView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private var days: List<Pair<LocalDate, Int>> = emptyList()
 
-    private val textColor = context.obtainStyledAttributes(intArrayOf(android.R.attr.textColorPrimary)).run {
-        getColor(0, 0xFF000000.toInt()).also { recycle() }
-    }
+    private val textColor = androidx.core.content.ContextCompat.getColor(context, R.color.muted)
     private val density = resources.displayMetrics.density
-    private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF3D7BC8.toInt() }
+    private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = androidx.core.content.ContextCompat.getColor(context, R.color.accent) }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = textColor
         textSize = 12 * resources.displayMetrics.scaledDensity

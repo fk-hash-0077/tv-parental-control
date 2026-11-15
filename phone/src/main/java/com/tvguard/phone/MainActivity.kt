@@ -3,7 +3,6 @@ package com.tvguard.phone
 import android.Manifest
 import android.app.TimePickerDialog
 import android.content.Intent
-import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -61,6 +60,25 @@ class MainActivity : AppCompatActivity() {
     private lateinit var connection: TextView
     private lateinit var syncResult: TextView
     private lateinit var status: TextView
+    private lateinit var pageTitle: TextView
+    private lateinit var greeting: TextView
+    private lateinit var pills: FlowRow
+    private lateinit var ring: RingView
+    private lateinit var ringValue: TextView
+    private lateinit var ringLabel: TextView
+    private lateinit var leftLabel: TextView
+    private lateinit var leftValue: TextView
+    private lateinit var topApp: TextView
+    private lateinit var diagConnection: TextView
+    private lateinit var bonusClear: View
+    private lateinit var lockNowIcon: TextView
+    private lateinit var lockNowLabel: TextView
+    private lateinit var unblockIcon: TextView
+    private lateinit var unblockLabel: TextView
+    private lateinit var bottomNav: View
+    private lateinit var tabs: List<Triple<TextView, View, String>>
+    private var currentTab = 0
+    private var usage: DataSnapshot? = null
     private lateinit var allowSwitch: SwitchCompat
     private lateinit var bonusLabel: TextView
     private lateinit var weekdayLimit: EditText
@@ -69,7 +87,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bedtimeSwitch: SwitchCompat
     private lateinit var installsSwitch: SwitchCompat
     private lateinit var appsLabel: TextView
-    private lateinit var usageList: TextView
+    private lateinit var usageList: LinearLayout
     private lateinit var historyChart: HistoryChartView
     private lateinit var requestSection: View
     private lateinit var requestLabel: TextView
@@ -144,6 +162,32 @@ class MainActivity : AppCompatActivity() {
         phonesList = findViewById(R.id.phonesList)
         emergencyLabel = findViewById(R.id.emergencyLabel)
         updateLabel = findViewById(R.id.updateLabel)
+        pageTitle = findViewById(R.id.pageTitle)
+        greeting = findViewById(R.id.greeting)
+        pills = findViewById(R.id.pills)
+        ring = findViewById(R.id.ring)
+        ringValue = findViewById(R.id.ringValue)
+        ringLabel = findViewById(R.id.ringLabel)
+        leftLabel = findViewById(R.id.leftLabel)
+        leftValue = findViewById(R.id.leftValue)
+        topApp = findViewById(R.id.topApp)
+        diagConnection = findViewById(R.id.diagConnection)
+        bonusClear = findViewById(R.id.bonusClear)
+        lockNowIcon = findViewById(R.id.lockNowIcon)
+        lockNowLabel = findViewById(R.id.lockNowLabel)
+        unblockIcon = findViewById(R.id.unblockIcon)
+        unblockLabel = findViewById(R.id.unblockLabel)
+        bottomNav = findViewById(R.id.bottomNav)
+        tabs = listOf(
+            Triple(findViewById(R.id.navHome), findViewById(R.id.tabHome), ""),
+            Triple(findViewById(R.id.navLimits), findViewById(R.id.tabLimits), "Limits & hours"),
+            Triple(findViewById(R.id.navApps), findViewById(R.id.tabApps), "Apps"),
+            Triple(findViewById(R.id.navFamily), findViewById(R.id.tabFamily), "Family"),
+            Triple(findViewById(R.id.navDiag), findViewById(R.id.tabDiag), "Diagnostics"),
+        )
+        tabs.forEachIndexed { i, (nav, _, _) -> nav.setOnClickListener { selectTab(i) } }
+        selectTab(savedInstanceState?.getInt("tab") ?: 0)
+        styleTileIcons()
 
         timeButtons = listOf(
             Triple(findViewById<Button>(R.id.weekdayStart), "weekdayStart", 15 * 60),
@@ -168,9 +212,12 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.request15).setOnClickListener { answerRequest(15) }
         findViewById<Button>(R.id.request30).setOnClickListener { answerRequest(30) }
         findViewById<Button>(R.id.requestNo).setOnClickListener { answerRequest(0) }
-        findViewById<Button>(R.id.bonus15).setOnClickListener { addBonus(15) }
-        findViewById<Button>(R.id.bonus30).setOnClickListener { addBonus(30) }
-        findViewById<Button>(R.id.bonusClear).setOnClickListener {
+        findViewById<View>(R.id.bonus15).setOnClickListener { addBonus(15) }
+        findViewById<View>(R.id.bonus30).setOnClickListener { addBonus(30) }
+        findViewById<View>(R.id.lockNow).setOnClickListener { toggleLockNow() }
+        findViewById<View>(R.id.unblockTile).setOnClickListener { toggleUnblock() }
+        findViewById<View>(R.id.connection).setOnClickListener { syncNow() }
+        bonusClear.setOnClickListener {
             write(mapOf("bonusDate" to "", "bonusMinutes" to 0))
         }
         findViewById<Button>(R.id.saveLimits).setOnClickListener { saveLimits() }
@@ -224,6 +271,11 @@ class MainActivity : AppCompatActivity() {
                 override fun onCancelled(error: DatabaseError) = Unit
             })
         signIn()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt("tab", currentTab)
     }
 
     override fun onStart() {
@@ -305,6 +357,12 @@ class MainActivity : AppCompatActivity() {
         listOf(pairSection, waitSection, controlSection).forEach {
             it.visibility = if (it === section) View.VISIBLE else View.GONE
         }
+        val paired = section === controlSection
+        bottomNav.visibility = if (paired) View.VISIBLE else View.GONE
+        if (paired) selectTab(currentTab) else {
+            pageTitle.text = "TV Guard"
+            greeting.text = "Welcome"
+        }
     }
 
     private fun pair() {
@@ -371,7 +429,7 @@ class MainActivity : AppCompatActivity() {
                 snapshot.children.associate { (it.key ?: "") to ((it.value as? Number)?.toInt() ?: 0) }
             )
         }
-        listen(ref.child("usage")) { renderUsage(it) }
+        listen(ref.child("usage")) { usage = it; render() }
         listen(ref.child("secret")) { snapshot ->
             snapshot.getValue(String::class.java)?.let { prefs.edit().putString("secret", it).apply() }
         }
@@ -436,7 +494,8 @@ class MainActivity : AppCompatActivity() {
         timeButtons.forEach { (button, key, default) -> button.text = formatTime(int(key, default)) }
 
         val bonus = todaysBonus()
-        bonusLabel.text = if (bonus > 0) "$bonus extra minutes today" else "No bonus time today"
+        bonusLabel.text = if (bonus > 0) "+$bonus bonus minutes today" else "Tap +15 or +30 to give bonus time today"
+        bonusClear.visibility = if (bonus > 0) View.VISIBLE else View.GONE
 
         val labels = apps.toMap()
         val chosen = packages()
@@ -455,7 +514,11 @@ class MainActivity : AppCompatActivity() {
         renderPhoto()
         renderConnection()
         renderRequest()
-        status.text = statusLines().joinToString("\n")
+        renderHome()
+        usage?.let { renderUsage(it) }
+        val warnings = warningLines()
+        status.text = warnings.joinToString("\n")
+        status.visibility = if (warnings.isEmpty()) View.GONE else View.VISIBLE
         val s = tvStatus
         val version = (s?.child("versionCode")?.value as? Number)?.toInt()
         val update = s?.child("update")?.getValue(String::class.java).orEmpty()
@@ -484,14 +547,20 @@ class MainActivity : AppCompatActivity() {
         val seen = lastSeen()
         val ago = (System.currentTimeMillis() - seen) / 60_000
         val (text, color) = when {
-            !phoneOnline -> "● This phone is offline" to COLOR_BAD
-            seen == 0L -> "● Waiting for the TV" to COLOR_WARN
-            ago < 2 -> "● Connected to the TV" to COLOR_OK
-            ago < 20 -> "● TV last seen $ago min ago" to COLOR_WARN
-            else -> "● TV offline, last seen ${formatWhen(seen)}" to COLOR_BAD
+            !phoneOnline -> "● This phone is offline" to color(R.color.bad)
+            seen == 0L -> "● Waiting for the TV" to color(R.color.warn)
+            ago < 2 -> "● Connected to the TV" to color(R.color.ok)
+            ago < 20 -> "● TV last seen $ago min ago" to color(R.color.warn)
+            else -> "● TV offline, last seen ${formatWhen(seen)}" to color(R.color.bad)
         }
-        connection.text = text
-        connection.setTextColor(color)
+        connection.text = when {
+            !phoneOnline || seen == 0L -> "Tap to sync ⟳"
+            ago < 2 -> "Synced just now ⟳"
+            else -> "Synced ${formatWhen(seen)} · tap to sync ⟳"
+        }
+        diagConnection.text = text.removePrefix("● ")
+        diagConnection.setTextColor(color)
+        connectionPill = text.removePrefix("● ") to color
 
         val pong = (tvStatus?.child("pongAt")?.value as? Number)?.toLong() ?: 0L
         if (pingSentAt > 0 && pong >= pingSentAt) {
@@ -516,29 +585,231 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderUsage(snapshot: DataSnapshot) {
-        if (snapshot.child("date").getValue(String::class.java) != LocalDate.now().toString()) {
-            usageList.text = "Nothing watched yet today"
-            return
+    /** Today's minutes per app, most watched first. */
+    private fun todaysApps(snapshot: DataSnapshot? = usage): List<Triple<String, String?, Int>> {
+        if (snapshot == null || snapshot.child("date").getValue(String::class.java) != LocalDate.now().toString()) {
+            return emptyList()
         }
-        val lines = snapshot.child("apps").children.mapNotNull { app ->
+        return snapshot.child("apps").children.mapNotNull { app ->
             val minutes = (app.child("minutes").value as? Number)?.toInt() ?: return@mapNotNull null
             val label = app.child("label").getValue(String::class.java) ?: return@mapNotNull null
-            "$label: ${formatMinutes(minutes)}"
+            Triple(label, app.child("pkg").getValue(String::class.java) ?: app.key, minutes)
+        }.sortedByDescending { it.third }
+    }
+
+    private fun renderUsage(snapshot: DataSnapshot) {
+        usageList.removeAllViews()
+        val rows = todaysApps(snapshot)
+        if (rows.isEmpty()) {
+            usageList.addView(TextView(this).apply {
+                text = "Nothing watched yet today"
+                setTextColor(color(R.color.muted))
+                setPadding(0, dp(10), 0, dp(10))
+            })
+            return
         }
-        usageList.text = if (lines.isEmpty()) "Nothing watched yet today" else lines.joinToString("\n")
+        val max = rows.maxOf { it.third }.coerceAtLeast(1)
+        val blocked = packages().toSet()
+        rows.forEachIndexed { i, (label, pkg, minutes) ->
+            if (i > 0) usageList.addView(View(this).apply {
+                setBackgroundColor(color(R.color.line))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
+            })
+            val row = LinearLayout(this).apply {
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, dp(11), 0, dp(11))
+            }
+            val name = LinearLayout(this).apply {
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            name.addView(TextView(this).apply {
+                text = label
+                textSize = 15f
+                setTextColor(color(R.color.text))
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            })
+            if (pkg != null && pkg in blocked && tvStatus?.child("appsAllowed")?.value != true) {
+                name.addView(pill("Blocked", color(R.color.bad), small = true).apply {
+                    (layoutParams as? LinearLayout.LayoutParams)?.marginStart = dp(8)
+                })
+            }
+            row.addView(name)
+            row.addView(BarView(this, minutes.toFloat() / max).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(90), dp(6)).apply { marginStart = dp(8) }
+            })
+            row.addView(TextView(this).apply {
+                text = formatMinutes(minutes)
+                textSize = 14f
+                setTextColor(color(R.color.text))
+                gravity = android.view.Gravity.END
+                layoutParams = LinearLayout.LayoutParams(dp(72), LinearLayout.LayoutParams.WRAP_CONTENT)
+            })
+            usageList.addView(row)
+        }
+    }
+
+    // ---- Home screen ----
+
+    private var connectionPill: Pair<String, Int> = "Connecting" to 0
+
+    private fun renderHome() {
+        val s = tvStatus
+        val used = (s?.child("usedMinutesToday")?.value as? Number)?.toInt() ?: 0
+        val limit = (s?.child("limitMinutesToday")?.value as? Number)?.toInt() ?: 0
+        val reason = s?.child("reason")?.getValue(String::class.java).orEmpty()
+        val locked = s?.child("locked")?.getValue(Boolean::class.java) == true
+        val left = (limit - used).coerceAtLeast(0)
+        val fraction = if (limit > 0) used.toFloat() / limit else 0f
+        val tone = when {
+            locked || (limit > 0 && left == 0) -> color(R.color.bad)
+            limit > 0 && (left <= 15 || fraction >= 0.7f) -> color(R.color.warn)
+            else -> color(R.color.ok)
+        }
+        ring.set(if (limit > 0) fraction else 0f, tone)
+        ringValue.text = formatShort(used)
+        ringLabel.text = if (limit > 0) "of ${formatShort(limit)} today" else "today, no limit"
+        leftLabel.text = if (limit > 0) "Left today" else "Daily limit"
+        leftValue.text = if (limit > 0) formatMinutes(left) else "Off"
+        leftValue.setTextColor(if (limit > 0) tone else color(R.color.muted))
+        val top = todaysApps().firstOrNull()
+        topApp.text = top?.let { "${it.first} · ${formatMinutes(it.third)}" } ?: "Nothing yet"
+
+        // Status pills
+        pills.removeAllViews()
+        val (connText, connColor) = connectionPill
+        if (connColor != 0) pills.addView(pill("● " + shortConnection(connText), connColor))
+        if (s != null && s.exists()) {
+            pills.addView(
+                when (reason) {
+                    "bedtime" -> pill("🌙 Bedtime lock", color(R.color.bad))
+                    "schedule" -> pill("🔒 Outside allowed hours", color(R.color.bad))
+                    "limit" -> pill("🔒 Time's up", color(R.color.bad))
+                    "manual" -> pill("🔒 Locked by you", color(R.color.bad))
+                    else -> pill("🔓 Unlocked", color(R.color.ok))
+                }
+            )
+            val overrideUntil = (s.child("overrideUntil").value as? Number)?.toLong() ?: 0L
+            if (overrideUntil > System.currentTimeMillis()) {
+                pills.addView(pill("Unlocked until ${formatWhen(overrideUntil)}", color(R.color.warn)))
+            }
+        }
+        if (bool("bedtimeEnabled") && reason != "bedtime") {
+            pills.addView(pill("Bedtime ${formatTime(int("bedtimeStart", 21 * 60))}", color(R.color.warn)))
+        }
+
+        // Quick action tiles
+        val lockedByMe = bool("lockNow")
+        lockNowIcon.text = if (lockedByMe) "🔓" else "🔒"
+        lockNowLabel.text = if (lockedByMe) "Unlock TV" else "Lock now"
+        val unblocked = config["unblockedDate"] == LocalDate.now().toString()
+        unblockIcon.text = if (unblocked) "■" else "▶"
+        unblockLabel.text = if (unblocked) "Block apps" else "Unblock apps"
+        tint(unblockIcon, if (unblocked) R.color.warn else R.color.ok)
+    }
+
+    private fun shortConnection(text: String): String = when {
+        text.startsWith("Connected") -> "Online"
+        text.startsWith("This phone") -> "Phone offline"
+        text.startsWith("TV offline") -> "TV offline"
+        else -> text
+    }
+
+    private fun selectTab(index: Int) {
+        currentTab = index
+        tabs.forEachIndexed { i, (nav, page, _) ->
+            val on = i == index
+            page.visibility = if (on) View.VISIBLE else View.GONE
+            nav.setTextColor(color(if (on) R.color.accent else R.color.muted))
+            nav.setTypeface(null, if (on) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+        }
+        val title = tabs[index].third
+        if (title.isEmpty()) {
+            greeting.text = greetingText()
+            pageTitle.text = "Your TV"
+        } else {
+            greeting.text = "TV Guard"
+            pageTitle.text = title
+        }
+        findViewById<android.widget.ScrollView>(R.id.content).scrollTo(0, 0)
+    }
+
+    private fun greetingText(): String = when (LocalTime.now().hour) {
+        in 5..11 -> "Good morning"
+        in 12..16 -> "Good afternoon"
+        else -> "Good evening"
+    }
+
+    private fun styleTileIcons() {
+        tint(findViewById(R.id.bonus15Icon), R.color.accent)
+        tint(findViewById(R.id.bonus30Icon), R.color.accent)
+        tint(lockNowIcon, R.color.bad)
+        tint(unblockIcon, R.color.ok)
+    }
+
+    /** Coloured text on a soft rounded square of the same colour. */
+    private fun tint(view: TextView, colorRes: Int) {
+        val c = color(colorRes)
+        view.setTextColor(c)
+        view.background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(14).toFloat()
+            setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(c, 0x26))
+        }
+    }
+
+    private fun pill(text: String, c: Int, small: Boolean = false): TextView = TextView(this).apply {
+        this.text = text
+        textSize = if (small) 11f else 13f
+        setTypeface(typeface, android.graphics.Typeface.BOLD)
+        setTextColor(c)
+        val h = if (small) dp(7) else dp(11)
+        val v = if (small) dp(2) else dp(5)
+        setPadding(h, v, h, v)
+        background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(20).toFloat()
+            setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(c, 0x22))
+        }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun color(res: Int) = ContextCompat.getColor(this, res)
+
+    /** A thin rounded bar filled to [fraction]. */
+    private class BarView(context: android.content.Context, private val fraction: Float) : View(context) {
+        private val track = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = ContextCompat.getColor(context, R.color.chip)
+        }
+        private val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = ContextCompat.getColor(context, R.color.accent)
+        }
+        override fun onDraw(canvas: android.graphics.Canvas) {
+            val r = height / 2f
+            canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), r, r, track)
+            val w = (width * fraction.coerceIn(0f, 1f)).coerceAtLeast(height.toFloat())
+            canvas.drawRoundRect(0f, 0f, w, height.toFloat(), r, r, fill)
+        }
     }
 
     private fun renderPending(snapshot: DataSnapshot) {
         pendingSection.removeAllViews()
         val code = Cloud.code(this) ?: return
+        if (snapshot.hasChildren()) {
+            pendingSection.addView(TextView(this).apply {
+                text = "New phone wants to pair"
+                textSize = 17f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(color(R.color.text))
+            })
+        }
         for (phone in snapshot.children) {
             val uid = phone.key ?: continue
             val name = phone.child("name").getValue(String::class.java) ?: "A phone"
             pendingSection.addView(TextView(this).apply {
                 text = "$name wants to pair with this TV"
-                textSize = 17f
-                setPadding(0, dp(20), 0, 0)
+                textSize = 15f
+                setTextColor(color(R.color.muted))
+                setPadding(0, dp(8), 0, dp(4))
             })
             pendingSection.addView(LinearLayout(this).apply {
                 addView(Button(this@MainActivity).apply {
@@ -582,36 +853,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun statusLines(): List<String> {
+    /** Problems a parent needs to fix, shown in red on the home screen. Empty when all is well. */
+    private fun warningLines(): List<String> {
         val s = tvStatus
-        if (s == null || !s.exists()) return listOf("Waiting for the TV to report in...")
-        val lines = mutableListOf<String>()
-        val used = (s.child("usedMinutesToday").value as? Number)?.toInt() ?: 0
-        val limit = (s.child("limitMinutesToday").value as? Number)?.toInt() ?: 0
-        lines += if (limit > 0) {
-            "TV time today: ${formatMinutes(used)} of ${formatMinutes(limit)}"
-        } else {
-            "TV time today: ${formatMinutes(used)} (no limit)"
-        }
-        lines += when (s.child("reason").getValue(String::class.java)) {
-            "bedtime" -> "The TV is locked for bedtime"
-            "schedule" -> "The TV is locked: outside allowed hours"
-            "limit" -> "The TV is locked: today's time is used up"
-            else -> "The TV is unlocked"
-        }
-        val overrideUntil = (s.child("overrideUntil").value as? Number)?.toLong() ?: 0L
-        if (overrideUntil > System.currentTimeMillis()) {
-            lines += "Unlocked early until ${formatWhen(overrideUntil)}"
-        }
+        if (s == null || !s.exists()) return emptyList()
         if (s.child("released").getValue(Boolean::class.java) == true) {
-            lines += "Protection removed. The TV app can now be uninstalled."
-        } else {
-            if (s.child("deviceOwner").getValue(Boolean::class.java) != true) {
-                lines += "⚠ TV app isn't Device Owner, so it can't lock anything. Run the setup again."
-            }
-            if (s.child("usageAccess").getValue(Boolean::class.java) != true) {
-                lines += "⚠ TV app can't measure TV time. Run the setup again."
-            }
+            return listOf("Protection removed. The TV app can now be uninstalled.")
+        }
+        val lines = mutableListOf<String>()
+        if (s.child("deviceOwner").getValue(Boolean::class.java) != true) {
+            lines += "⚠ TV app isn't Device Owner, so it can't lock anything. Run the setup again."
+        }
+        if (s.child("usageAccess").getValue(Boolean::class.java) != true) {
+            lines += "⚠ TV app can't measure TV time. Run the setup again."
         }
         return lines
     }
@@ -625,6 +879,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun formatMinutes(minutes: Int): String =
         if (minutes >= 60) "${minutes / 60} h ${minutes % 60} min" else "$minutes min"
+
+    /** "1h 26m", for the ring. */
+    private fun formatShort(minutes: Int): String = when {
+        minutes < 60 -> "${minutes}m"
+        minutes % 60 == 0 -> "${minutes / 60}h"
+        else -> "${minutes / 60}h ${minutes % 60}m"
+    }
 
     // ---- Actions ----
 
@@ -712,6 +973,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun toggleLockNow() {
+        if (bool("lockNow")) {
+            write(mapOf("lockNow" to false))
+            toast("Unlocking the TV")
+        } else {
+            AlertDialog.Builder(this)
+                .setMessage("Lock the TV now? It stays locked until you unlock it here.")
+                .setPositiveButton("Lock") { _, _ ->
+                    // Also cancels any extra time given earlier, so the lock takes effect at once.
+                    write(mapOf("lockNow" to true, "overrideUntil" to 0))
+                    toast("Locking the TV")
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+
+    private fun toggleUnblock() {
+        val unblocked = config["unblockedDate"] == LocalDate.now().toString()
+        write(mapOf("unblockedDate" to if (unblocked) "" else LocalDate.now().toString()))
+        toast(if (unblocked) "Blocked apps are blocked again" else "Blocked apps unblocked until midnight")
+    }
+
     private fun addBonus(minutes: Int) {
         val total = todaysBonus() + minutes
         write(mapOf("bonusDate" to LocalDate.now().toString(), "bonusMinutes" to total))
@@ -788,6 +1072,7 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().remove("code").remove("secret").apply()
         config = emptyMap<String, Any>()
         tvStatus = null
+        usage = null
         apps = emptyList()
         codeInput.setText("")
         show(pairSection)
@@ -832,8 +1117,5 @@ class MainActivity : AppCompatActivity() {
             "com.google.android.youtube.tvkids",
             "com.roblox.client",
         )
-        private val COLOR_OK = Color.parseColor("#2E7D32")
-        private val COLOR_WARN = Color.parseColor("#EF8F00")
-        private val COLOR_BAD = Color.parseColor("#C62828")
     }
 }

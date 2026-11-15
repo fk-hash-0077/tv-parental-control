@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Lets TV Guard install its own updates; it is Device Owner, so no prompt is shown. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- The 5-minute warning card over other apps. Granted once over adb:
+         appops set com.tvguard.tv SYSTEM_ALERT_WINDOW allow -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Granted once over adb: appops set com.tvguard.tv GET_USAGE_STATS allow -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"

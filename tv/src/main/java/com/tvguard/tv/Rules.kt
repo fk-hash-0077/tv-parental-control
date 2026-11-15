@@ -12,7 +12,7 @@ object Rules {
         val blockApps: Boolean,
         /** The whole TV shows the lock screen. */
         val lockTv: Boolean,
-        /** Why the whole TV is locked: bedtime, schedule or limit; empty when it isn't. */
+        /** Why the whole TV is locked: bedtime, schedule, limit or manual; empty when it isn't. */
         val reason: String,
         /** Today's total limit including bonus time; 0 means no limit. */
         val limitMinutes: Int,
@@ -83,6 +83,7 @@ object Rules {
             bedtime -> "bedtime"
             outsideSchedule -> "schedule"
             limitReached -> "limit"
+            config.lockNow -> "manual"
             else -> ""
         }
         val overridden = wouldLock.isNotEmpty() && overrideUntil > nowMillis

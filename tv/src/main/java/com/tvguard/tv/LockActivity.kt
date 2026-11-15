@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.graphics.drawable.GradientDrawable
 import android.view.KeyEvent
 import android.view.View
 import android.widget.Button
@@ -89,31 +90,82 @@ class LockActivity : AppCompatActivity() {
         val title = findViewById<TextView>(R.id.title)
         val icon = findViewById<TextView>(R.id.icon)
         val detail = findViewById<TextView>(R.id.unlockAt)
-        when (store.lockReason) {
+        val countdown = findViewById<TextView>(R.id.countdown)
+        val now = LocalDateTime.now()
+        val minute = now.hour * 60 + now.minute
+        val reason = store.lockReason
+        // Minute of the day when the TV unlocks again, if that's known, for the countdown.
+        var unlocksAt: Int? = null
+        when (reason) {
             "bedtime" -> {
                 icon.text = "🌙"
                 title.text = "Time for bed"
-                detail.text = "The TV unlocks at ${formatTime(config.bedtimeEnd)}"
+                detail.text = "The TV wakes up in"
+                unlocksAt = config.bedtimeEnd
             }
             "schedule" -> {
                 icon.text = "⏸"
                 title.text = "TV isn't allowed right now"
-                val weekend = Rules.isWeekend(LocalDateTime.now())
-                val start = if (weekend) config.weekendStart else config.weekdayStart
-                val end = if (weekend) config.weekendEnd else config.weekdayEnd
-                detail.text = "TV time today is ${formatTime(start)} to ${formatTime(end)}"
+                val todayStart = startFor(config, now)
+                if (minute < todayStart) {
+                    detail.text = "TV time starts at ${formatTime(todayStart)}, in"
+                    unlocksAt = todayStart
+                } else {
+                    val tomorrowStart = startFor(config, now.plusDays(1))
+                    detail.text = "Back tomorrow at ${formatTime(tomorrowStart)}, in"
+                    unlocksAt = tomorrowStart
+                }
+            }
+            "manual" -> {
+                icon.text = "⏸"
+                title.text = "A parent paused the TV"
+                detail.text = "It unlocks when they say so"
             }
             else -> {
                 icon.text = "⏰"
                 title.text = "TV time is up for today"
-                detail.text = "It resets at midnight"
+                detail.text = if (config.scheduleEnabled) {
+                    "Back tomorrow at ${formatTime(startFor(config, now.plusDays(1)))}"
+                } else {
+                    "Back tomorrow"
+                }
             }
         }
-        val showPhoto = store.lockReason == "limit" && !Rules.isWeekend(LocalDateTime.now()) && showPhoto()
+        if (unlocksAt != null) {
+            val secondsNow = minute * 60 + now.second
+            var left = unlocksAt * 60 - secondsNow
+            if (left <= 0) left += 24 * 3600
+            countdown.text = "%d:%02d:%02d".format(left / 3600, left / 60 % 60, left % 60)
+            countdown.visibility = View.VISIBLE
+        } else {
+            countdown.visibility = View.GONE
+        }
+        if (reason != renderedReason) {
+            renderedReason = reason
+            findViewById<View>(R.id.root).background = GradientDrawable().apply {
+                gradientType = GradientDrawable.RADIAL_GRADIENT
+                gradientRadius = resources.displayMetrics.widthPixels * 0.75f
+                setGradientCenter(0.5f, 0f)
+                colors = if (reason == "bedtime") {
+                    intArrayOf(0xFF1D2147.toInt(), 0xFF06070F.toInt())
+                } else {
+                    intArrayOf(0xFF23304A.toInt(), 0xFF090D14.toInt())
+                }
+            }
+        }
+        val showPhoto = reason == "limit" && !Rules.isWeekend(now) && showPhoto()
         photo.visibility = if (showPhoto) View.VISIBLE else View.GONE
         icon.visibility = if (showPhoto) View.GONE else View.VISIBLE
+        val used = store.lastStatus?.usedMinutesToday ?: 0
+        findViewById<TextView>(R.id.watched).text = when {
+            reason == "bedtime" -> "Unlocks at ${formatTime(config.bedtimeEnd)}"
+            used > 0 -> "You watched ${formatMinutes(used)} today"
+            else -> ""
+        }
         answer.text = answerText()
     }
+
+    private var renderedReason = ""
 
     /** Draws the parent's photo into the round frame. False when there is no photo. */
     private fun showPhoto(): Boolean {
@@ -131,6 +183,16 @@ class LockActivity : AppCompatActivity() {
             shownPhotoAt = at
         }
         return true
+    }
+
+    /** Start of the allowed hours on [day]'s kind of day (weekday or weekend). */
+    private fun startFor(config: GuardConfig, day: LocalDateTime): Int =
+        if (Rules.isWeekend(day)) config.weekendStart else config.weekdayStart
+
+    private fun formatMinutes(minutes: Int): String = when {
+        minutes < 60 -> "$minutes min"
+        minutes % 60 == 0 -> "${minutes / 60} h"
+        else -> "${minutes / 60} h ${minutes % 60} min"
     }
 
     private fun answerText(): String {
@@ -247,7 +309,7 @@ class LockActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val CHECK_MS = 2_000L
+        private const val CHECK_MS = 1_000L
         private const val PHOTO_DP = 200
         private const val RING_DP = 4
         private const val TYPING_GAP_MS = 10_000L

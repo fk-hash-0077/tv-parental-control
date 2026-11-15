@@ -50,6 +50,8 @@ data class GuardConfig(
     val emergencySetAt: Long = 0,
     /** Set from the phone to remove protection so the app can be uninstalled. */
     val releaseOwner: Boolean = false,
+    /** The phone's "Lock now": the whole TV stays locked until the phone turns it off. */
+    val lockNow: Boolean = false,
 ) {
     fun toMap(): Map<String, Any> = mapOf(
         "unblockedDate" to unblockedDate,
@@ -74,6 +76,7 @@ data class GuardConfig(
         "emergencyCode" to emergencyCode,
         "emergencySetAt" to emergencySetAt,
         "releaseOwner" to releaseOwner,
+        "lockNow" to lockNow,
     )
 
     companion object {
@@ -118,6 +121,7 @@ data class GuardConfig(
                 emergencyCode = str("emergencyCode", "").filter { it in '0'..'3' },
                 emergencySetAt = long("emergencySetAt", 0),
                 releaseOwner = bool("releaseOwner", false),
+                lockNow = bool("lockNow", false),
             )
         }
     }
@@ -261,6 +265,11 @@ class Store(context: Context) {
         set(value) = prefs.edit().putLong("update_handled", value).apply()
 
     /** When the server last confirmed a status write, for the TV screen. */
+    /** True once at least one phone is approved, so the TV can hide its pairing code. */
+    var paired: Boolean
+        get() = prefs.getBoolean("paired", false)
+        set(value) = prefs.edit().putBoolean("paired", value).apply()
+
     var syncSavedAt: Long
         get() = prefs.getLong("sync_saved_at", 0)
         set(value) = prefs.edit().putLong("sync_saved_at", value).apply()

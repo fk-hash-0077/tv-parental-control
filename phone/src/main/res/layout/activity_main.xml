@@ -1,89 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/bg">
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
 <ScrollView
     android:id="@+id/content"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="0dp"
+    android:layout_weight="1">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="24dp">
+
+        <!-- Header -->
+        <TextView
+            android:id="@+id/greeting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="TV Guard"
+            android:textColor="@color/muted"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/pageTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="TV Guard"
+            android:textColor="@color/text"
+            android:textSize="26sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/notice"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            style="@style/Card"
+            android:textColor="@color/text"
             android:textSize="15sp"
             android:visibility="gone" />
 
         <!-- Pairing -->
         <LinearLayout
             android:id="@+id/pairSection"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            style="@style/Card">
+
+            <TextView style="@style/CardTitle" android:text="Pair with your TV" />
 
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Open TV Guard on the TV and type the code it shows."
-                android:textSize="16sp" />
+                style="@style/Hint"
+                android:text="Open TV Guard on the TV and type the code it shows." />
 
             <EditText
                 android:id="@+id/codeInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
+                android:fontFamily="monospace"
                 android:hint="XXXX-XXXX-XXXX"
                 android:inputType="textCapCharacters|textNoSuggestions"
-                android:maxLength="14" />
+                android:maxLength="14"
+                android:textSize="20sp" />
 
             <Button
                 android:id="@+id/pairButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="12dp"
                 android:text="Pair with TV" />
         </LinearLayout>
 
         <!-- Waiting for another phone to approve this one -->
         <LinearLayout
             android:id="@+id/waitSection"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
+            style="@style/Card"
             android:visibility="gone">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Waiting for approval"
-                android:textSize="20sp"
-                android:textStyle="bold" />
+            <TextView style="@style/CardTitle" android:text="Waiting for approval" />
 
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="A phone that's already paired with this TV needs to approve this one. It gets a notification, or can approve from TV Guard under Paired phones."
-                android:textSize="16sp" />
+                style="@style/Hint"
+                android:text="A phone that's already paired with this TV needs to approve this one. It gets a notification, or can approve from TV Guard under Family." />
 
             <Button
                 android:id="@+id/cancelWait"
-                style="?android:attr/borderlessButtonStyle"
+                style="@style/Button.Text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="12dp"
                 android:text="Cancel" />
         </LinearLayout>
 
-        <!-- Controls -->
+        <!-- Controls, split into tabs -->
         <LinearLayout
             android:id="@+id/controlSection"
             android:layout_width="match_parent"
@@ -91,439 +110,644 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <TextView
-                android:id="@+id/connection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="17sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/syncResult"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:visibility="gone" />
-
+            <!-- ===== Home ===== -->
             <LinearLayout
+                android:id="@+id/tabHome"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:orientation="horizontal">
+                android:orientation="vertical">
 
-                <Button
-                    android:id="@+id/syncNow"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Sync now" />
+                <!-- Status card -->
+                <LinearLayout style="@style/Card">
 
-                <Button
-                    android:id="@+id/unlockCode"
-                    android:layout_width="0dp"
+                    <com.tvguard.phone.FlowRow
+                        android:id="@+id/pills"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <FrameLayout
+                            android:layout_width="132dp"
+                            android:layout_height="132dp">
+
+                            <com.tvguard.phone.RingView
+                                android:id="@+id/ring"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent" />
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/ringValue"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="–"
+                                    android:textColor="@color/text"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/ringLabel"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="@color/muted"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="18dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/leftLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Left today"
+                                android:textColor="@color/muted"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/leftValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/ok"
+                                android:textSize="22sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/topAppLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:text="Most watched"
+                                android:textColor="@color/muted"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/topApp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="–"
+                                android:textColor="@color/text"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/connection"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:background="?attr/selectableItemBackground"
+                                android:textColor="@color/muted"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/syncResult"
+                        style="@style/Hint"
+                        android:layout_marginTop="10dp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/status"
+                        style="@style/Hint"
+                        android:layout_marginTop="10dp"
+                        android:textColor="@color/bad"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <!-- The TV is asking for more time -->
+                <LinearLayout
+                    android:id="@+id/requestSection"
+                    style="@style/Card"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/requestLabel"
+                        style="@style/CardTitle"
+                        android:text="The TV is asking for more time" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/request15"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:layout_weight="1"
+                            android:text="+15 min" />
+
+                        <Button
+                            android:id="@+id/request30"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:layout_weight="1"
+                            android:text="+30 min" />
+
+                        <Button
+                            android:id="@+id/requestNo"
+                            style="@style/Button.Soft"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="No" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Phones waiting to be approved -->
+                <LinearLayout
+                    android:id="@+id/pendingSection"
+                    style="@style/Card"
+                    android:visibility="gone" />
+
+                <!-- Quick actions -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Unlock code" />
+                    android:layout_marginStart="-5dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginEnd="-5dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout android:id="@+id/bonus15" style="@style/Tile">
+                        <TextView android:id="@+id/bonus15Icon" style="@style/TileIcon" android:text="+15" />
+                        <TextView style="@style/TileLabel" android:text="15 min" />
+                    </LinearLayout>
+
+                    <LinearLayout android:id="@+id/bonus30" style="@style/Tile">
+                        <TextView android:id="@+id/bonus30Icon" style="@style/TileIcon" android:text="+30" />
+                        <TextView style="@style/TileLabel" android:text="30 min" />
+                    </LinearLayout>
+
+                    <LinearLayout android:id="@+id/lockNow" style="@style/Tile">
+                        <TextView android:id="@+id/lockNowIcon" style="@style/TileIcon" android:text="🔒" />
+                        <TextView android:id="@+id/lockNowLabel" style="@style/TileLabel" android:text="Lock now" />
+                    </LinearLayout>
+
+                    <LinearLayout android:id="@+id/unblockTile" style="@style/Tile">
+                        <TextView android:id="@+id/unblockIcon" style="@style/TileIcon" android:text="▶" />
+                        <TextView android:id="@+id/unblockLabel" style="@style/TileLabel" android:text="Unblock apps" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/bonusLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+
+                    <Button
+                        android:id="@+id/bonusClear"
+                        style="@style/Button.Text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Clear bonus"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <TextView style="@style/Section" android:text="Today by app" />
+
+                <LinearLayout
+                    android:id="@+id/usageList"
+                    style="@style/Card"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp" />
+
+                <TextView style="@style/Section" android:text="Last 7 days (minutes)" />
+
+                <LinearLayout style="@style/Card">
+                    <com.tvguard.phone.HistoryChartView
+                        android:id="@+id/historyChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="170dp" />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- The TV is asking for more time -->
+            <!-- ===== Limits & hours ===== -->
             <LinearLayout
-                android:id="@+id/requestSection"
+                android:id="@+id/tabLimits"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:id="@+id/requestLabel"
-                    style="@style/Section"
-                    android:text="The TV is asking for more time" />
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="Daily TV time" />
+                    <TextView style="@style/Hint" android:text="Total minutes per day. 0 means no limit." />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Mon–Fri"
+                            android:textColor="@color/text" />
+
+                        <EditText
+                            android:id="@+id/weekdayLimit"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:inputType="number"
+                            android:maxLength="4" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:text="Sat–Sun"
+                            android:textColor="@color/text" />
+
+                        <EditText
+                            android:id="@+id/weekendLimit"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:inputType="number"
+                            android:maxLength="4" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/saveLimits"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:layout_marginTop="8dp"
+                        android:text="Save" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/Card">
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/scheduleSwitch"
+                        style="@style/SwitchRow"
+                        android:text="Allowed hours" />
+
+                    <TextView style="@style/Hint" android:text="The TV locks outside these hours." />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="76dp"
+                            android:layout_height="wrap_content"
+                            android:text="Mon–Fri"
+                            android:textColor="@color/text" />
+
+                        <Button android:id="@+id/weekdayStart" style="@style/Button.Time" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="to"
+                            android:textColor="@color/muted" />
+
+                        <Button android:id="@+id/weekdayEnd" style="@style/Button.Time" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="76dp"
+                            android:layout_height="wrap_content"
+                            android:text="Sat–Sun"
+                            android:textColor="@color/text" />
+
+                        <Button android:id="@+id/weekendStart" style="@style/Button.Time" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="to"
+                            android:textColor="@color/muted" />
+
+                        <Button android:id="@+id/weekendEnd" style="@style/Button.Time" />
+                    </LinearLayout>
+                </LinearLayout>
 
                 <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:id="@+id/bedtimeCard"
+                    style="@style/Card">
 
-                    <Button
-                        android:id="@+id/request15"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="+15 min" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/bedtimeSwitch"
+                        style="@style/SwitchRow"
+                        android:text="Bedtime" />
 
-                    <Button
-                        android:id="@+id/request30"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="+30 min" />
+                    <TextView style="@style/Hint" android:text="The whole TV locks every night." />
 
-                    <Button
-                        android:id="@+id/requestNo"
-                        android:layout_width="0dp"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="No" />
+                        android:layout_marginTop="10dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="76dp"
+                            android:layout_height="wrap_content"
+                            android:text="Every day"
+                            android:textColor="@color/text" />
+
+                        <Button android:id="@+id/bedtimeStart" style="@style/Button.Time" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="to"
+                            android:textColor="@color/muted" />
+
+                        <Button android:id="@+id/bedtimeEnd" style="@style/Button.Time" />
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Phones waiting to be approved -->
+            <!-- ===== Apps ===== -->
             <LinearLayout
-                android:id="@+id/pendingSection"
+                android:id="@+id/tabApps"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:visibility="gone" />
+                android:visibility="gone">
 
-            <TextView
-                android:id="@+id/status"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:lineSpacingExtra="4dp"
-                android:textSize="16sp" />
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="Blocked apps" />
 
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/allowSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Unblock YouTube, Roblox and other blocked apps today"
-                android:textSize="17sp" />
+                    <TextView
+                        android:id="@+id/appsLabel"
+                        style="@style/Hint" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="They block again at midnight." />
+                    <Button
+                        android:id="@+id/chooseApps"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Choose apps" />
+                </LinearLayout>
 
-            <!-- Bonus time -->
-            <TextView style="@style/Section" android:text="Bonus time today" />
+                <LinearLayout style="@style/Card">
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/allowSwitch"
+                        style="@style/SwitchRow"
+                        android:text="Unblock them for today" />
 
-            <TextView
-                android:id="@+id/bonusLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                    <TextView style="@style/Hint" android:text="They block again at midnight." />
+                </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                <LinearLayout style="@style/Card">
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/installsSwitch"
+                        style="@style/SwitchRow"
+                        android:text="Allow installing and updating apps" />
 
-                <Button
-                    android:id="@+id/bonus15"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="+15 min" />
-
-                <Button
-                    android:id="@+id/bonus30"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="+30 min" />
-
-                <Button
-                    android:id="@+id/bonusClear"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Clear" />
+                    <TextView
+                        style="@style/Hint"
+                        android:text="When off, nothing can be installed from the Play Store or the home screen. TV Guard can still update itself." />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- Limits -->
-            <TextView style="@style/Section" android:text="Total TV time per day, in minutes (0 for no limit)" />
-
+            <!-- ===== Family ===== -->
             <LinearLayout
+                android:id="@+id/tabFamily"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:visibility="gone">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Mon–Fri" />
+                <LinearLayout
+                    android:id="@+id/phonesCard"
+                    style="@style/Card">
 
-                <EditText
-                    android:id="@+id/weekdayLimit"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:inputType="number"
-                    android:maxLength="4" />
+                    <TextView style="@style/CardTitle" android:text="Paired phones" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:text="Sat–Sun" />
+                    <LinearLayout
+                        android:id="@+id/phonesList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
 
-                <EditText
-                    android:id="@+id/weekendLimit"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:inputType="number"
-                    android:maxLength="4" />
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="Unlock code" />
 
-                <Button
-                    android:id="@+id/saveLimits"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Save" />
+                    <TextView
+                        style="@style/Hint"
+                        android:text="Type it with the remote's arrows on the lock screen to unlock the TV for 30 minutes." />
+
+                    <Button
+                        android:id="@+id/unlockCode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Show unlock code" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="Emergency unlock code" />
+
+                    <TextView
+                        android:id="@+id/emergencyLabel"
+                        style="@style/Hint" />
+
+                    <Button
+                        android:id="@+id/emergencyButton"
+                        style="@style/Button.Soft"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Set emergency code" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="Lock screen photo" />
+
+                    <TextView
+                        android:id="@+id/photoLabel"
+                        style="@style/Hint" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/photoChoose"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Choose photo" />
+
+                        <Button
+                            android:id="@+id/photoRemove"
+                            style="@style/Button.Text"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Remove photo" />
+                    </LinearLayout>
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- Schedule -->
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/scheduleSwitch"
-                style="@style/Section"
-                android:text="Allowed hours: lock the TV outside them" />
-
+            <!-- ===== Diagnostics ===== -->
             <LinearLayout
+                android:id="@+id/tabDiag"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:visibility="gone">
 
-                <TextView
-                    android:layout_width="72dp"
-                    android:layout_height="wrap_content"
-                    android:text="Mon–Fri" />
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="Connection" />
 
-                <Button
-                    android:id="@+id/weekdayStart"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
+                    <TextView
+                        android:id="@+id/diagConnection"
+                        style="@style/Hint" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="to" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
 
-                <Button
-                    android:id="@+id/weekdayEnd"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
+                        <Button
+                            android:id="@+id/syncNow"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:text="Sync now" />
+
+                        <Button
+                            android:id="@+id/diagnosticsButton"
+                            style="@style/Button.Soft"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Details and logs" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="TV Guard on the TV" />
+
+                    <TextView
+                        android:id="@+id/updateLabel"
+                        style="@style/Hint" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/updateTv"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:text="Update TV" />
+
+                        <Button
+                            android:id="@+id/phoneUpdate"
+                            style="@style/Button.Soft"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Newest phone app" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout style="@style/Card">
+                    <Button
+                        android:id="@+id/unpairButton"
+                        style="@style/Button.Text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="start|center_vertical"
+                        android:text="Unpair this phone" />
+
+                    <Button
+                        android:id="@+id/releaseButton"
+                        style="@style/Button.Text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="start|center_vertical"
+                        android:text="Remove protection from TV"
+                        android:textColor="@color/bad" />
+                </LinearLayout>
             </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="72dp"
-                    android:layout_height="wrap_content"
-                    android:text="Sat–Sun" />
-
-                <Button
-                    android:id="@+id/weekendStart"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="to" />
-
-                <Button
-                    android:id="@+id/weekendEnd"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <!-- Bedtime -->
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/bedtimeSwitch"
-                style="@style/Section"
-                android:text="Bedtime: lock the whole TV" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="72dp"
-                    android:layout_height="wrap_content"
-                    android:text="Every day" />
-
-                <Button
-                    android:id="@+id/bedtimeStart"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="to" />
-
-                <Button
-                    android:id="@+id/bedtimeEnd"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <!-- Apps -->
-            <TextView style="@style/Section" android:text="Blocked apps" />
-
-            <TextView
-                android:id="@+id/appsLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <Button
-                android:id="@+id/chooseApps"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Choose apps" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/installsSwitch"
-                style="@style/Section"
-                android:text="Allow installing and updating apps" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="When off, nothing can be installed from the Play Store or the home screen. TV Guard can still update itself." />
-
-            <!-- Watch time -->
-            <TextView style="@style/Section" android:text="TV time today" />
-
-            <TextView
-                android:id="@+id/usageList"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:lineSpacingExtra="4dp" />
-
-            <TextView style="@style/Section" android:text="Last 7 days (minutes)" />
-
-            <com.tvguard.phone.HistoryChartView
-                android:id="@+id/historyChart"
-                android:layout_width="match_parent"
-                android:layout_height="180dp" />
-
-            <!-- Emergency code -->
-            <TextView style="@style/Section" android:text="Emergency unlock code" />
-
-            <TextView
-                android:id="@+id/emergencyLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <Button
-                android:id="@+id/emergencyButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Set emergency code" />
-
-            <!-- Lock screen photo -->
-            <TextView style="@style/Section" android:text="Lock screen photo" />
-
-            <TextView
-                android:id="@+id/photoLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/photoChoose"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Choose photo" />
-
-                <Button
-                    android:id="@+id/photoRemove"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="Remove photo" />
-            </LinearLayout>
-
-            <!-- Updates -->
-            <TextView style="@style/Section" android:text="TV Guard on the TV" />
-
-            <TextView
-                android:id="@+id/updateLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/updateTv"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Update TV" />
-
-                <Button
-                    android:id="@+id/phoneUpdate"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Get newest phone app" />
-            </LinearLayout>
-
-            <!-- Phones -->
-            <TextView style="@style/Section" android:text="Paired phones" />
-
-            <LinearLayout
-                android:id="@+id/phonesList"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-
-            <Button
-                android:id="@+id/diagnosticsButton"
-                style="?android:attr/borderlessButtonStyle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:text="Diagnostics and logs" />
-
-            <Button
-                android:id="@+id/releaseButton"
-                style="?android:attr/borderlessButtonStyle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Remove protection from TV" />
-
-            <Button
-                android:id="@+id/unpairButton"
-                style="?android:attr/borderlessButtonStyle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Unpair this phone" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>
+
+    <!-- Bottom tabs, shown once paired -->
+    <LinearLayout
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/card"
+        android:elevation="8dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView android:id="@+id/navHome" style="@style/NavItem" android:text="⌂\nHome" />
+        <TextView android:id="@+id/navLimits" style="@style/NavItem" android:text="⏱\nLimits &amp; hours" />
+        <TextView android:id="@+id/navApps" style="@style/NavItem" android:text="▦\nApps" />
+        <TextView android:id="@+id/navFamily" style="@style/NavItem" android:text="☺\nFamily" />
+        <TextView android:id="@+id/navDiag" style="@style/NavItem" android:text="✚\nDiagnostics" />
+    </LinearLayout>
+</LinearLayout>
 
     <!-- Shown until the phone's own fingerprint or screen lock is confirmed. -->
     <LinearLayout
         android:id="@+id/lockOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?android:attr/colorBackground"
+        android:background="@color/bg"
         android:clickable="true"
         android:focusable="true"
         android:gravity="center"
@@ -541,6 +765,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="TV Guard is locked"
+            android:textColor="@color/text"
             android:textSize="20sp" />
 
         <Button
