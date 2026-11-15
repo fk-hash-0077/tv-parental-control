@@ -36,6 +36,11 @@ adb -s "$TV" shell appops set "$PKG" GET_USAGE_STATS allow
 echo "Allowing the 5-minute warning to show over other apps ..."
 adb -s "$TV" shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow
 
+# TCL TVs block apps from starting in the background (at boot, after an update, or for title
+# access) unless they have this app-op. Other TVs don't have it, so a failure is ignored.
+echo "Letting TV Guard start by itself (TCL TVs) ..."
+adb -s "$TV" shell appops set "$PKG" AUTO_START allow 2>/dev/null || true
+
 echo "Letting TV Guard see what's playing, for the phone's Now playing card ..."
 adb -s "$TV" shell cmd notification allow_listener "$PKG/$PKG.MediaListener" || true
 

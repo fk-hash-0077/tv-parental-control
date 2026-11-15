@@ -32,6 +32,7 @@ class GuardService : Service() {
     private var lastCatalogAt = 0L
     private var lastUsageAt = 0L
     private val startedAt = System.currentTimeMillis()
+    private var startedBy = ""
 
     private val tick = object : Runnable {
         override fun run() {
@@ -44,7 +45,7 @@ class GuardService : Service() {
             publishCatalog()
             checkForUpdateRequest()
             checkForLogsRequest()
-            sync.pushDiag(startedAt)
+            sync.pushDiag(startedAt, startedBy)
             handler.postDelayed(this, INTERVAL_MS)
         }
     }
@@ -156,6 +157,11 @@ class GuardService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (startedBy.isEmpty()) {
+            // What brought TV Guard up, so the logs show whether the TV let it start by itself.
+            startedBy = intent?.getStringExtra(EXTRA_REASON) ?: "restarted by Android"
+            AppLog.i(TAG, "Started by: $startedBy")
+        }
         if (::handler.isInitialized) handler.post(tick)
         return START_STICKY
     }
@@ -207,8 +213,14 @@ class GuardService : Service() {
         @Volatile var current: CloudSync? = null
             private set
 
-        fun start(context: Context) {
-            ContextCompat.startForegroundService(context, Intent(context, GuardService::class.java))
+        private const val EXTRA_REASON = "reason"
+
+        /** [reason] is logged when this starts the service, e.g. "TV turned on". */
+        fun start(context: Context, reason: String = "TV Guard opened") {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, GuardService::class.java).putExtra(EXTRA_REASON, reason),
+            )
         }
     }
 }

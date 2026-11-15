@@ -10,7 +10,8 @@ class BootReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 AppLog.init(context)
                 AppLog.i("TvGuard", "Starting after ${intent.action?.substringAfterLast('.')}")
-                GuardService.start(context)
+                val reason = if (intent.action == Intent.ACTION_BOOT_COMPLETED) "TV turned on" else "app updated"
+                GuardService.start(context, reason)
             }
         }
     }

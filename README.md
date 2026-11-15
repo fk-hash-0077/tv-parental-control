@@ -128,6 +128,20 @@ Tap **Update TV** in the phone app. The TV downloads the newest `tv-debug.apk` f
 release and installs itself, even while installs are blocked. For the phone, tap
 **Get newest phone app**.
 
+## TCL TVs: let TV Guard start by itself
+
+TCL TVs stop apps from starting in the background unless they're allowed to. Without this,
+TV Guard only starts when you open it: not when the TV turns on, not after an update, and
+title access for Now playing never connects. Run this once from the computer with `adb`
+(the setup script does it for new TVs):
+
+```sh
+adb shell appops set com.tvguard.tv AUTO_START allow
+```
+
+Diagnostics on the phone shows "Started by" for the TV, which should say "TV turned on"
+after the TV restarts, or "update installed" after Update TV.
+
 ## Turning on titles for Now playing
 
 On a TV set up before titles were added, run this once from the computer with `adb`
