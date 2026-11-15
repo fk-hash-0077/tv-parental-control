@@ -17,7 +17,8 @@ import java.time.ZoneId
  */
 class UsageTracker(private val context: Context) {
 
-    data class Usage(val totalMinutes: Int, val minutesByApp: Map<String, Int>)
+    /** [foreground] is the app on screen right now (not the home screen or TV Guard), or null. */
+    data class Usage(val totalMinutes: Int, val minutesByApp: Map<String, Int>, val foreground: String? = null)
 
     fun hasAccess(): Boolean {
         val appOps = context.getSystemService(AppOpsManager::class.java)
@@ -101,6 +102,8 @@ class UsageTracker(private val context: Context) {
             }
             lastTime = time
         }
+        // Whatever opened most recently and is still open is on screen now.
+        val foreground = openCount.filterValues { it > 0 }.keys.maxByOrNull { openSince[it] ?: 0L }
         closeAll(end)
 
         // Clip to the day, then sum per app and take the union for the total,
@@ -128,7 +131,7 @@ class UsageTracker(private val context: Context) {
         }
         if (curEnd > curStart) totalMs += curEnd - curStart
 
-        return Usage((totalMs / 60_000).toInt(), perApp)
+        return Usage((totalMs / 60_000).toInt(), perApp, foreground)
     }
 
     private fun startOfDay(day: LocalDate): Long =

@@ -16,6 +16,9 @@ Parental controls for a Google TV / Android TV, run from a phone.
   - A parent can pick a **lock screen photo** on the phone for when the weekday limit is used up,
     and another for bedtime. Each shows in a round frame on that lock screen. The photo passes through Firebase only until the TV saves it in its
     private storage, then the TV deletes it from Firebase. It is never part of this repository.
+  - The phone's **Now playing** card shows which app is on the TV and, for apps that share it
+    (YouTube, Netflix and most video and music apps), the title. Live TV, HDMI inputs and games
+    show only the app name.
   - The TV's clock stays automatic, and app installs are blocked unless the phone allows them.
   - It updates itself from GitHub releases when the phone's **Update TV** button is tapped.
 - **Phone app** (`phone/`) opens only after the phone's fingerprint or screen lock. It shows
@@ -124,6 +127,18 @@ adb shell am broadcast -a com.tvguard.tv.RESET_PHONES -n com.tvguard.tv/.ResetPh
 Tap **Update TV** in the phone app. The TV downloads the newest `tv-debug.apk` from the latest
 release and installs itself, even while installs are blocked. For the phone, tap
 **Get newest phone app**.
+
+## Turning on titles for Now playing
+
+On a TV set up before titles were added, run this once from the computer with `adb`
+(the setup script does it for new TVs):
+
+```sh
+adb connect <TV IP>:<port>
+adb shell cmd notification allow_listener com.tvguard.tv/com.tvguard.tv.MediaListener
+```
+
+Without it, the phone still shows which app is open, just not the title.
 
 ## Troubleshooting
 

@@ -36,6 +36,9 @@ adb -s "$TV" shell appops set "$PKG" GET_USAGE_STATS allow
 echo "Allowing the 5-minute warning to show over other apps ..."
 adb -s "$TV" shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow
 
+echo "Letting TV Guard see what's playing, for the phone's Now playing card ..."
+adb -s "$TV" shell cmd notification allow_listener "$PKG/$PKG.MediaListener" || true
+
 echo "Making TV Guard the Device Owner ..."
 adb -s "$TV" shell dpm set-device-owner "$PKG/.AdminReceiver"
 

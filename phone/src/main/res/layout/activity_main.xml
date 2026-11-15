@@ -232,6 +232,34 @@
                         android:visibility="gone" />
                 </LinearLayout>
 
+                <!-- What's on the TV right now -->
+                <LinearLayout
+                    android:id="@+id/nowCard"
+                    style="@style/Card">
+
+                    <TextView
+                        android:id="@+id/nowLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Now playing"
+                        android:textColor="@color/muted"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/nowTitle"
+                        style="@style/CardTitle"
+                        android:layout_marginTop="4dp"
+                        android:ellipsize="end"
+                        android:maxLines="2"
+                        android:text="–" />
+
+                    <TextView
+                        android:id="@+id/nowDetail"
+                        style="@style/Hint"
+                        android:ellipsize="end"
+                        android:maxLines="2" />
+                </LinearLayout>
+
                 <!-- The TV is asking for more time -->
                 <LinearLayout
                     android:id="@+id/requestSection"
