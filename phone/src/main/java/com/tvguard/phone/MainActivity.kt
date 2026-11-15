@@ -88,6 +88,8 @@ class MainActivity : AppCompatActivity() {
     private var apps: List<Pair<String, String>> = emptyList()
     private var request: DataSnapshot? = null
     private var requestAnswer: DataSnapshot? = null
+    private var diag: DataSnapshot? = null
+    private var logs: DataSnapshot? = null
     private var phoneOnline = true
     private var pingSentAt = 0L
 
@@ -177,6 +179,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.phoneUpdate).setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${BuildConfig.RELEASES_REPO}/releases/latest")))
         }
+        findViewById<Button>(R.id.diagnosticsButton).setOnClickListener { showDiagnostics() }
         findViewById<Button>(R.id.releaseButton).setOnClickListener { confirmRelease() }
         findViewById<Button>(R.id.unpairButton).setOnClickListener { unpair() }
         allowSwitch.setOnCheckedChangeListener { button, checked ->
@@ -361,6 +364,8 @@ class MainActivity : AppCompatActivity() {
         listen(ref.child("requestAnswer")) { requestAnswer = it; render() }
         listen(ref.child("pending")) { renderPending(it) }
         listen(ref.child("parents")) { renderPhones(it) }
+        listen(ref.child("diag")) { diag = it }
+        listen(ref.child("logs")) { logs = it }
         Cloud.registerToken(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -609,6 +614,23 @@ class MainActivity : AppCompatActivity() {
                 syncResult.text = "The TV didn't answer. It may be off, in standby without Wi-Fi, or offline."
             }
         }, 20_000)
+    }
+
+    private fun showDiagnostics() {
+        val code = Cloud.code(this) ?: return
+        Diagnostics(
+            activity = this,
+            code = code,
+            phoneOnline = { phoneOnline },
+            status = { tvStatus },
+            diag = { diag },
+            logs = { logs },
+            requestLogs = {
+                val at = System.currentTimeMillis()
+                write(mapOf("logsRequestAt" to at))
+                at
+            },
+        ).show()
     }
 
     private fun answerRequest(minutes: Int) {

@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         val lines = mutableListOf<String>()
         lines += checkLine(owner, "Device Owner", "run scripts/setup-tv.sh")
         lines += checkLine(usage, "Usage access", "run scripts/setup-tv.sh")
-        lines += checkLine(cloud, "Phone sync", "add google-services.json and rebuild")
+        lines += phoneSyncLine(store, cloud)
         lines += ""
         lines += when (status?.reason) {
             "bedtime" -> "Bedtime: the TV is locked"
@@ -54,6 +54,20 @@ class MainActivity : AppCompatActivity() {
             lines += "Last check: " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(status.updatedAt))
         }
         findViewById<TextView>(R.id.status).text = lines.joinToString("\n")
+    }
+
+    /** Ticked only when the server confirmed a write in the last few minutes, not just when set up. */
+    private fun phoneSyncLine(store: Store, cloud: Boolean): String {
+        if (!cloud) return checkLine(false, "Phone sync", "add google-services.json and rebuild")
+        val saved = store.syncSavedAt
+        if (System.currentTimeMillis() - saved < 3 * 60_000L) return checkLine(true, "Phone sync", "")
+        val last = if (saved > 0) {
+            "last reached at " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(saved))
+        } else {
+            "not reached yet"
+        }
+        val error = store.syncError.takeIf { it.isNotEmpty() }?.let { " ($it)" } ?: ""
+        return "✗ Phone sync: $last, reconnecting$error"
     }
 
     private fun checkLine(ok: Boolean, label: String, fix: String) =

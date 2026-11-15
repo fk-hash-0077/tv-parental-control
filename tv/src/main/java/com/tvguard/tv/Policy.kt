@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.UserManager
-import android.util.Log
 
 /** Device Owner actions. All of them are no-ops if the app isn't Device Owner. */
 class Policy(private val context: Context) {
@@ -44,7 +43,7 @@ class Policy(private val context: Context) {
         return try {
             dpm.setPackagesSuspended(admin, packages.toTypedArray(), suspended).toSet()
         } catch (e: Exception) {
-            Log.w(TAG, "setPackagesSuspended failed", e)
+            AppLog.w(TAG, "setPackagesSuspended failed", e)
             packages.toSet()
         }
     }
@@ -64,7 +63,7 @@ class Policy(private val context: Context) {
             }
             dpm.addUserRestriction(admin, UserManager.DISALLOW_CONFIG_DATE_TIME)
         } catch (e: Exception) {
-            Log.w(TAG, "Couldn't lock the clock", e)
+            AppLog.w(TAG, "Couldn't lock the clock", e)
         }
     }
 

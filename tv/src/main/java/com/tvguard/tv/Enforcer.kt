@@ -52,7 +52,11 @@ object Enforcer {
         store.suspended = target - failed
 
         val lock = decision.lockTv && policy.isDeviceOwner
-        store.lockReason = if (lock) decision.reason else ""
+        val newReason = if (lock) decision.reason else ""
+        if (newReason != store.lockReason) {
+            AppLog.i("TvGuardRules", if (newReason.isEmpty()) "TV unlocked" else "TV locked: $newReason")
+        }
+        store.lockReason = newReason
         if (lock) {
             policy.allowLockTask()
             LockActivity.show(context)

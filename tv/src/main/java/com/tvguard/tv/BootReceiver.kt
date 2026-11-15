@@ -7,7 +7,11 @@ import android.content.Intent
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> GuardService.start(context)
+            Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                AppLog.init(context)
+                AppLog.i("TvGuard", "Starting after ${intent.action?.substringAfterLast('.')}")
+                GuardService.start(context)
+            }
         }
     }
 }
