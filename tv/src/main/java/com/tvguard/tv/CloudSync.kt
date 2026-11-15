@@ -144,11 +144,18 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
      * The lock screen photo from a phone: saved in the TV's private storage, then removed from
      * Firebase so it isn't kept in the cloud. An empty photo means the phone removed it.
      */
+    /** Photos already being saved, so the same one sent twice by the listener is saved once. */
+    private val photosInHand = java.util.Collections.synchronizedSet(HashSet<String>())
+
     private fun receivePhoto(snapshot: DataSnapshot, bedtime: Boolean) {
         if (!snapshot.exists()) return
         val at = (snapshot.child("at").value as? Number)?.toLong() ?: 0L
         val data = snapshot.child("data").getValue(String::class.java).orEmpty()
         val photoRef = snapshot.ref
+        // The listener can report the same photo twice before it is deleted from Firebase.
+        // Saving it twice at once made the second copy fail with "couldn't be read".
+        val key = "$bedtime:$at"
+        if (!photosInHand.add(key)) return
         Thread({
             val which = if (bedtime) "Bedtime photo" else "Lock screen photo"
             if (data.isEmpty()) {
@@ -161,7 +168,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
             } else {
                 AppLog.w(TAG, "$which couldn't be read; ignoring it")
             }
-            photoRef.removeValue()
+            photoRef.removeValue().addOnCompleteListener { photosInHand.remove(key) }
             onConfigChanged()
         }, "photo").start()
     }
@@ -313,7 +320,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
     }
 
     /** Connection details for the phone's Diagnostics screen. Sent with every check. */
-    fun pushDiag(serviceStartedAt: Long) {
+    fun pushDiag(serviceStartedAt: Long, startedBy: String) {
         val deviceRef = ref ?: return
         deviceRef.child("diag").setValue(
             mapOf(
@@ -324,6 +331,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
                 "lastReconnectAt" to lastReconnectAt,
                 "lastReconnectReason" to lastReconnectReason,
                 "serviceStartedAt" to serviceStartedAt,
+                "startedBy" to startedBy,
                 "lockReason" to store.lockReason,
                 "version" to BuildConfig.VERSION_CODE,
                 "android" to Build.VERSION.RELEASE,

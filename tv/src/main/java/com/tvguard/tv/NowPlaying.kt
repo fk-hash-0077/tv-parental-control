@@ -102,6 +102,11 @@ object NowPlaying {
             Media(c.packageName, title, subtitle, c.playbackState?.state == PlaybackState.STATE_PLAYING)
         }
         if (now == sessions) return
+        // Which apps share what, so the logs show why a title is or isn't on the phone.
+        val summary = now.joinToString { m ->
+            "${m.pkg}: ${if (m.title.isEmpty()) "no title" else "title"}, ${if (m.playing) "playing" else "not playing"}"
+        }
+        AppLog.i(TAG, "Media sessions: ${summary.ifEmpty { "none" }}")
         sessions = now
         onChange?.invoke()
     }

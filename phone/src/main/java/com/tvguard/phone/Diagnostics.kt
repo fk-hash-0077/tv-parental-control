@@ -102,6 +102,9 @@ class Diagnostics(
             val lastReconnect = long(d, "lastReconnectAt")
             if (lastReconnect > 0) lines += "Last reconnect: ${whenAgo(lastReconnect)}, ${str(d, "lastReconnectReason")}"
             lines += "Running since: ${whenAgo(long(d, "serviceStartedAt"))}"
+            d.child("startedBy").getValue(String::class.java)?.takeIf { it.isNotEmpty() }?.let {
+                lines += "Started by: $it"
+            }
             lines += "Lock: ${str(d, "lockReason").ifEmpty { "unlocked" }}"
         }
         lines += "Last Sync now answered: ${whenAgo(long(s, "pongAt"))}"

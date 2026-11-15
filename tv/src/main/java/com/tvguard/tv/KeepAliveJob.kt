@@ -18,7 +18,7 @@ class KeepAliveJob : JobService() {
             AppLog.init(this)
             AppLog.i("TvGuard", "Starting from keep-alive job ${params.jobId}")
         }
-        runCatching { GuardService.start(this) }
+        runCatching { GuardService.start(this, "keep-alive check") }
             .onFailure { AppLog.w("TvGuard", "Keep-alive couldn't start the service", it) }
         return false
     }

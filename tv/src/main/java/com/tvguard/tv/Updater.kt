@@ -153,7 +153,7 @@ class UpdateReceiver : BroadcastReceiver() {
         if (status == PackageInstaller.STATUS_SUCCESS) {
             AppLog.i("TvGuardUpdate", "Install finished, starting version ${BuildConfig.VERSION_CODE}")
             Updater.reportFinished(context)
-            GuardService.start(context)
+            GuardService.start(context, "update installed")
             return
         }
         val store = Store(context)
