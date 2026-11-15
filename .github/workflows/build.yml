@@ -36,6 +36,10 @@ jobs:
           npm ci --no-audit --no-fund
           node --test
 
+      - name: Test web parent app
+        working-directory: web
+        run: node --test
+
       - name: Add Firebase config
         if: env.GOOGLE_SERVICES_JSON != ''
         run: |
@@ -112,3 +116,13 @@ jobs:
           (cd functions && npm ci --no-audit --no-fund)
           npx --yes firebase-tools@13.35.1 deploy --only functions,database \
             --project "$project" --non-interactive --force
+          echo "project=$project" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+        id: deploy
+
+      # The parent app for iPhones and browsers (web/), at https://<site>.web.app.
+      - name: Deploy web parent app
+        if: env.FIREBASE_SERVICE_ACCOUNT != '' && env.GOOGLE_SERVICES_JSON != ''
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          scripts/deploy-web.sh "${{ steps.deploy.outputs.project }}" "${{ steps.deploy.outputs.url }}"
