@@ -198,11 +198,11 @@ class MainActivity : AppCompatActivity() {
         unblockLabel = findViewById(R.id.unblockLabel)
         bottomNav = findViewById(R.id.bottomNav)
         tabs = listOf(
-            Triple(findViewById(R.id.navHome), findViewById(R.id.tabHome), ""),
-            Triple(findViewById(R.id.navLimits), findViewById(R.id.tabLimits), "Limits & hours"),
-            Triple(findViewById(R.id.navApps), findViewById(R.id.tabApps), "Apps"),
-            Triple(findViewById(R.id.navFamily), findViewById(R.id.tabFamily), "Family"),
-            Triple(findViewById(R.id.navDiag), findViewById(R.id.tabDiag), "Diagnostics"),
+            Triple(findViewById<TextView>(R.id.navHome), findViewById<View>(R.id.tabHome), ""),
+            Triple(findViewById<TextView>(R.id.navLimits), findViewById<View>(R.id.tabLimits), "Limits & hours"),
+            Triple(findViewById<TextView>(R.id.navApps), findViewById<View>(R.id.tabApps), "Apps"),
+            Triple(findViewById<TextView>(R.id.navFamily), findViewById<View>(R.id.tabFamily), "Family"),
+            Triple(findViewById<TextView>(R.id.navDiag), findViewById<View>(R.id.tabDiag), "Diagnostics"),
         )
         tabs.forEachIndexed { i, (nav, _, _) -> nav.setOnClickListener { selectTab(i) } }
         selectTab(savedInstanceState?.getInt("tab") ?: 0)
