@@ -70,12 +70,19 @@ jobs:
     needs: build
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # Two merges close together used to deploy at the same time, and the older one could finish
+    # last and put back old database rules. Deploys now run one at a time, always from the newest main.
+    concurrency:
+      group: firebase-deploy
+      cancel-in-progress: false
     env:
       GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
     steps:
       - uses: actions/checkout@v4
         if: env.FIREBASE_SERVICE_ACCOUNT != '' && env.GOOGLE_SERVICES_JSON != ''
+        with:
+          ref: main
 
       - uses: actions/setup-node@v4
         if: env.FIREBASE_SERVICE_ACCOUNT != '' && env.GOOGLE_SERVICES_JSON != ''
