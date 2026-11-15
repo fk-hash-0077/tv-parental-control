@@ -6,6 +6,9 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.view.KeyEvent
 import android.view.View
@@ -180,10 +183,20 @@ class LockActivity : AppCompatActivity() {
         }
         val wanted = bedtime to (if (bedtime) store.bedtimePhotoAt else store.photoAt)
         if (wanted != shownPhoto || photo.drawable == null) {
-            val size = (PHOTO_DP * resources.displayMetrics.density).toInt()
-            val ring = (RING_DP * resources.displayMetrics.density).toInt()
-            val circle = LockPhoto.circle(this, size, ring, bedtime) ?: return false
-            photo.setImageBitmap(circle)
+            val density = resources.displayMetrics.density
+            val frame = (FRAME_DP * density).toInt()
+            val halo = (HALO_DP * density).toInt()
+            val ring = (RING_DP * density).toInt()
+            val circle = LockPhoto.circle(this, frame - 2 * halo, ring, bedtime) ?: return false
+            // Halo, ring and photo in one bitmap the exact size of the view, centred on each other.
+            val framed = Bitmap.createBitmap(frame, frame, Bitmap.Config.ARGB_8888)
+            Canvas(framed).apply {
+                val c = frame / 2f
+                drawCircle(c, c, c, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = HALO_COLOR })
+                drawBitmap(circle, halo.toFloat(), halo.toFloat(), null)
+            }
+            circle.recycle()
+            photo.setImageBitmap(framed)
             shownPhoto = wanted
         }
         return true
@@ -314,8 +327,11 @@ class LockActivity : AppCompatActivity() {
 
     companion object {
         private const val CHECK_MS = 1_000L
-        private const val PHOTO_DP = 200
+        /** Must match the photo view's size in activity_lock.xml. */
+        private const val FRAME_DP = 150
+        private const val HALO_DP = 8
         private const val RING_DP = 4
+        private const val HALO_COLOR = 0x55F59E0B
         private const val TYPING_GAP_MS = 10_000L
         private const val MIN_CODE = 4
         private const val MAX_TYPED = 12
