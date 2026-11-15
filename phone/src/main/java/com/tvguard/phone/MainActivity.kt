@@ -95,11 +95,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var phonesList: LinearLayout
     private lateinit var emergencyLabel: TextView
     private lateinit var updateLabel: TextView
-    private lateinit var photoLabel: TextView
-    private lateinit var photoRemove: Button
-    /** When this phone last sent or removed the lock screen photo, until the TV confirms it. */
-    private var photoSentAt = 0L
-    private var photoSentEmpty = false
+    /**
+     * One lock screen photo: the weekday limit one or the bedtime one. Each goes to its own
+     * Firebase node, and the TV reports when it has it saved.
+     */
+    private class PhotoSlot(
+        val node: String,
+        val statusKey: String,
+        /** When it shows on the TV, e.g. "when weekday TV time is used up". */
+        val shownWhen: String,
+        val label: TextView,
+        val remove: Button,
+    ) {
+        /** When this phone last sent or removed the photo, until the TV confirms it. */
+        var sentAt = 0L
+        var sentEmpty = false
+    }
+
+    private lateinit var limitPhoto: PhotoSlot
+    private lateinit var bedtimePhoto: PhotoSlot
+    /** The slot the photo picker is choosing for. */
+    private var pickingFor: PhotoSlot? = null
 
     /** Time buttons and the config field each one edits, with its default. */
     private lateinit var timeButtons: List<Triple<Button, String, Int>>
@@ -122,7 +138,10 @@ class MainActivity : AppCompatActivity() {
     private var authenticating = false
 
     private val pickPhoto =
-        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { sendPhoto(it) } }
+        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            val slot = pickingFor
+            if (uri != null && slot != null) sendPhoto(slot, uri)
+        }
 
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -235,12 +254,19 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.phoneUpdate).setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${BuildConfig.RELEASES_REPO}/releases/latest")))
         }
-        photoLabel = findViewById(R.id.photoLabel)
-        photoRemove = findViewById(R.id.photoRemove)
-        findViewById<Button>(R.id.photoChoose).setOnClickListener {
-            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        limitPhoto = PhotoSlot(
+            "photo", "photoAt", "when weekday TV time is used up",
+            findViewById(R.id.photoLabel), findViewById(R.id.photoRemove),
+        )
+        bedtimePhoto = PhotoSlot(
+            "bedtimePhoto", "bedtimePhotoAt", "during bedtime",
+            findViewById(R.id.bedtimePhotoLabel), findViewById(R.id.bedtimePhotoRemove),
+        )
+        findViewById<Button>(R.id.photoChoose).setOnClickListener { pickPhoto(limitPhoto) }
+        findViewById<Button>(R.id.bedtimePhotoChoose).setOnClickListener { pickPhoto(bedtimePhoto) }
+        listOf(limitPhoto, bedtimePhoto).forEach { slot ->
+            slot.remove.setOnClickListener { confirmRemovePhoto(slot) }
         }
-        photoRemove.setOnClickListener { confirmRemovePhoto() }
         findViewById<Button>(R.id.diagnosticsButton).setOnClickListener { showDiagnostics() }
         findViewById<Button>(R.id.releaseButton).setOnClickListener { confirmRelease() }
         findViewById<Button>(R.id.unpairButton).setOnClickListener { unpair() }
@@ -511,7 +537,8 @@ class MainActivity : AppCompatActivity() {
             "Set. It works once, then you set a new one."
         }
 
-        renderPhoto()
+        renderPhoto(limitPhoto)
+        renderPhoto(bedtimePhoto)
         renderConnection()
         renderRequest()
         renderHome()
@@ -528,17 +555,17 @@ class MainActivity : AppCompatActivity() {
         ).joinToString("\n").ifEmpty { "Waiting for the TV" }
     }
 
-    private fun renderPhoto() {
-        val onTv = (tvStatus?.child("photoAt")?.value as? Number)?.toLong() ?: 0L
-        val waiting = photoSentAt > 0 && (if (photoSentEmpty) onTv != 0L else onTv < photoSentAt)
-        if (photoSentAt > 0 && !waiting) photoSentAt = 0
-        photoLabel.text = when {
-            waiting && photoSentEmpty -> "Removing the photo from the TV…"
+    private fun renderPhoto(slot: PhotoSlot) {
+        val onTv = (tvStatus?.child(slot.statusKey)?.value as? Number)?.toLong() ?: 0L
+        val waiting = slot.sentAt > 0 && (if (slot.sentEmpty) onTv != 0L else onTv < slot.sentAt)
+        if (slot.sentAt > 0 && !waiting) slot.sentAt = 0
+        slot.label.text = when {
+            waiting && slot.sentEmpty -> "Removing the photo from the TV…"
             waiting -> "Sending the photo to the TV… It arrives the next time the TV is online."
-            onTv > 0 -> "On the TV. It shows in a round frame when weekday TV time is used up. It's saved only on the TV."
-            else -> "None. Choose a photo to show on the TV when weekday TV time is used up."
+            onTv > 0 -> "On the TV. It shows in a round frame ${slot.shownWhen}. It's saved only on the TV."
+            else -> "None. Choose a photo to show on the TV ${slot.shownWhen}."
         }
-        photoRemove.visibility = if (onTv > 0 || (waiting && !photoSentEmpty)) View.VISIBLE else View.GONE
+        slot.remove.visibility = if (onTv > 0 || (waiting && !slot.sentEmpty)) View.VISIBLE else View.GONE
     }
 
     private fun lastSeen(): Long = (tvStatus?.child("updatedAt")?.value as? Number)?.toLong() ?: 0L
@@ -923,10 +950,15 @@ class MainActivity : AppCompatActivity() {
         ).show()
     }
 
+    private fun pickPhoto(slot: PhotoSlot) {
+        pickingFor = slot
+        pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
     /** Shrinks the picked photo and sends it to the TV, which saves it and deletes it from Firebase. */
-    private fun sendPhoto(uri: Uri) {
+    private fun sendPhoto(slot: PhotoSlot, uri: Uri) {
         val ref = deviceRef ?: return
-        photoLabel.text = "Preparing the photo…"
+        slot.label.text = "Preparing the photo…"
         Thread {
             val data = LockPhoto.prepare(this, uri)
             runOnUiThread {
@@ -936,12 +968,12 @@ class MainActivity : AppCompatActivity() {
                     return@runOnUiThread
                 }
                 val at = System.currentTimeMillis()
-                photoSentAt = at
-                photoSentEmpty = false
+                slot.sentAt = at
+                slot.sentEmpty = false
                 render()
-                ref.child("photo").setValue(mapOf("at" to at, "data" to data))
+                ref.child(slot.node).setValue(mapOf("at" to at, "data" to data))
                     .addOnFailureListener { e ->
-                        photoSentAt = 0
+                        slot.sentAt = 0
                         render()
                         toast("Couldn't send the photo: ${e.message}")
                     }
@@ -949,16 +981,16 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun confirmRemovePhoto() {
+    private fun confirmRemovePhoto(slot: PhotoSlot) {
         AlertDialog.Builder(this)
-            .setTitle("Remove the lock screen photo?")
-            .setMessage("The TV deletes it and shows the clock again when TV time is used up.")
+            .setTitle("Remove this photo?")
+            .setMessage("The TV deletes it and shows the plain lock screen again.")
             .setPositiveButton("Remove") { _, _ ->
                 val ref = deviceRef ?: return@setPositiveButton
-                photoSentAt = System.currentTimeMillis()
-                photoSentEmpty = true
+                slot.sentAt = System.currentTimeMillis()
+                slot.sentEmpty = true
                 render()
-                ref.child("photo").setValue(mapOf("at" to photoSentAt, "data" to ""))
+                ref.child(slot.node).setValue(mapOf("at" to slot.sentAt, "data" to ""))
             }
             .setNegativeButton("Cancel", null)
             .show()

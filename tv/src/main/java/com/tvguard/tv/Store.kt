@@ -150,6 +150,8 @@ data class GuardStatus(
     val updatedAt: Long,
     /** When the lock screen photo on the TV was sent, or 0 when there is none. */
     val photoAt: Long = 0,
+    /** The same for the bedtime lock screen photo. */
+    val bedtimePhotoAt: Long = 0,
 ) {
     fun toMap(): Map<String, Any> = mapOf(
         "usedMinutesToday" to usedMinutesToday,
@@ -169,6 +171,7 @@ data class GuardStatus(
         "timeZone" to timeZone,
         "updatedAt" to updatedAt,
         "photoAt" to photoAt,
+        "bedtimePhotoAt" to bedtimePhotoAt,
     )
 }
 
@@ -288,6 +291,11 @@ class Store(context: Context) {
         get() = prefs.getLong("photo_at", 0)
         set(value) = prefs.edit().putLong("photo_at", value).apply()
 
+    /** When the phone sent the bedtime lock screen photo now saved on the TV, or 0. */
+    var bedtimePhotoAt: Long
+        get() = prefs.getLong("bedtime_photo_at", 0)
+        set(value) = prefs.edit().putLong("bedtime_photo_at", value).apply()
+
     /** The version a self-update is installing, so the new version can report success. */
     var updateTarget: Int
         get() = prefs.getInt("update_target", 0)
@@ -316,6 +324,7 @@ class Store(context: Context) {
                     timeZone = o.optString("timeZone"),
                     updatedAt = o.optLong("updatedAt"),
                     photoAt = o.optLong("photoAt"),
+                    bedtimePhotoAt = o.optLong("bedtimePhotoAt"),
                 )
             }.getOrNull()
         }

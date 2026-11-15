@@ -606,7 +606,7 @@
                 </LinearLayout>
 
                 <LinearLayout style="@style/Card">
-                    <TextView style="@style/CardTitle" android:text="Lock screen photo" />
+                    <TextView style="@style/CardTitle" android:text="Time's up photo" />
 
                     <TextView
                         android:id="@+id/photoLabel"
@@ -626,6 +626,35 @@
 
                         <Button
                             android:id="@+id/photoRemove"
+                            style="@style/Button.Text"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Remove photo" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="Bedtime photo" />
+
+                    <TextView
+                        android:id="@+id/bedtimePhotoLabel"
+                        style="@style/Hint" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/bedtimePhotoChoose"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Choose photo" />
+
+                        <Button
+                            android:id="@+id/bedtimePhotoRemove"
                             style="@style/Button.Text"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"

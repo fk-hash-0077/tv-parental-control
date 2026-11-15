@@ -8,12 +8,13 @@ Parental controls for a Google TV / Android TV, run from a phone.
   - One daily limit for **all** TV time (separate for weekdays and weekends). Every app on
     screen counts, including Live TV and HDMI inputs; the home screen, screensaver, Settings and
     TV Guard don't. When the limit is used up, outside the allowed hours, and at bedtime, the whole
-    TV shows a lock screen. A message warns 5 minutes before any lock.
+    TV shows a lock screen (with a countdown when the unlock time is known), and so does the
+    phone's **Lock now** button. A small card in the corner warns 5 minutes before any lock.
   - On the lock screen, a parent can type a **one-time arrow code** from the phone app (or a
     single-use emergency code) on the remote to unlock for 30 minutes, and kids can press
     **Ask for more time**.
-  - A parent can pick a **lock screen photo** on the phone. It shows in a round frame when the
-    weekday limit is used up. The photo passes through Firebase only until the TV saves it in its
+  - A parent can pick a **lock screen photo** on the phone for when the weekday limit is used up,
+    and another for bedtime. Each shows in a round frame on that lock screen. The photo passes through Firebase only until the TV saves it in its
     private storage, then the TV deletes it from Firebase. It is never part of this repository.
   - The TV's clock stays automatic, and app installs are blocked unless the phone allows them.
   - It updates itself from GitHub releases when the phone's **Update TV** button is tapped.

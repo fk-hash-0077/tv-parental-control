@@ -117,6 +117,7 @@ object Enforcer {
             timeZone = ZoneId.systemDefault().id,
             updatedAt = System.currentTimeMillis(),
             photoAt = if (LockPhoto.exists(context)) store.photoAt else 0,
+            bedtimePhotoAt = if (LockPhoto.exists(context, bedtime = true)) store.bedtimePhotoAt else 0,
         ).also { store.lastStatus = it }
     }
 

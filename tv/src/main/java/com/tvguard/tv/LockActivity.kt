@@ -28,8 +28,8 @@ import java.time.format.FormatStyle
  * either the one-time code shown in the phone app, or the emergency code set from the phone.
  * Nothing on screen changes while the arrows are typed.
  *
- * When the weekday limit is used up and a parent sent a photo from the phone, the photo is shown
- * in a round frame in place of the clock icon.
+ * When the weekday limit is used up, or at bedtime, and a parent sent a photo for it from the
+ * phone, the photo is shown in a round frame in place of the icon.
  */
 class LockActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
@@ -39,8 +39,8 @@ class LockActivity : AppCompatActivity() {
     private lateinit var askButton: Button
     private lateinit var answer: TextView
     private lateinit var photo: ImageView
-    /** The photoAt of the circle now on screen, so it is only redrawn when the photo changes. */
-    private var shownPhotoAt = -1L
+    /** Which photo is on screen and when it was sent, so it is only redrawn when it changes. */
+    private var shownPhoto: Pair<Boolean, Long>? = null
 
     private val check = object : Runnable {
         override fun run() {
@@ -153,7 +153,11 @@ class LockActivity : AppCompatActivity() {
                 }
             }
         }
-        val showPhoto = reason == "limit" && !Rules.isWeekend(now) && showPhoto()
+        val showPhoto = when (reason) {
+            "limit" -> !Rules.isWeekend(now) && showPhoto(bedtime = false)
+            "bedtime" -> showPhoto(bedtime = true)
+            else -> false
+        }
         photo.visibility = if (showPhoto) View.VISIBLE else View.GONE
         icon.visibility = if (showPhoto) View.GONE else View.VISIBLE
         val used = store.lastStatus?.usedMinutesToday ?: 0
@@ -168,19 +172,19 @@ class LockActivity : AppCompatActivity() {
     private var renderedReason = ""
 
     /** Draws the parent's photo into the round frame. False when there is no photo. */
-    private fun showPhoto(): Boolean {
-        if (!LockPhoto.exists(this)) {
-            shownPhotoAt = -1L
+    private fun showPhoto(bedtime: Boolean): Boolean {
+        if (!LockPhoto.exists(this, bedtime)) {
+            shownPhoto = null
             photo.setImageDrawable(null)
             return false
         }
-        val at = store.photoAt
-        if (at != shownPhotoAt || photo.drawable == null) {
+        val wanted = bedtime to (if (bedtime) store.bedtimePhotoAt else store.photoAt)
+        if (wanted != shownPhoto || photo.drawable == null) {
             val size = (PHOTO_DP * resources.displayMetrics.density).toInt()
             val ring = (RING_DP * resources.displayMetrics.density).toInt()
-            val circle = LockPhoto.circle(this, size, ring) ?: return false
+            val circle = LockPhoto.circle(this, size, ring, bedtime) ?: return false
             photo.setImageBitmap(circle)
-            shownPhotoAt = at
+            shownPhoto = wanted
         }
         return true
     }
