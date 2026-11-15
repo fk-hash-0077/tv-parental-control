@@ -1,0 +1,6 @@
+{
+  "name": "tv-guard-web",
+  "private": true,
+  "type": "module",
+  "description": "Parent app for iPhones and browsers. Plain files, no build step. Tests: node --test"
+}

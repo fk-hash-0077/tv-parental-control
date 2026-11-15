@@ -8,3 +8,4 @@ local.properties
 google-services.json
 functions/node_modules/
 functions/database.json
+web/firebase-config.json
