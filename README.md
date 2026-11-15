@@ -136,8 +136,14 @@ title access for Now playing never connects. Run this once from the computer wit
 (the setup script does it for new TVs):
 
 ```sh
+# Newer TCL models
 adb shell appops set com.tvguard.tv AUTO_START allow
+# Older TCL models (Android 11), where the line above says "Unknown operation string"
+adb shell appops set com.tvguard.tv APP_AUTO_START allow
+adb shell appops set com.tvguard.tv APP_ASSOC_START allow
 ```
+
+`adb shell appops get com.tvguard.tv` shows which ones your TV has.
 
 Diagnostics on the phone shows "Started by" for the TV, which should say "TV turned on"
 after the TV restarts, or "update installed" after Update TV.
