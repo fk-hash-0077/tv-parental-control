@@ -1,17 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#05070A"
+    android:background="#090D14"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="48dp">
+    android:padding="40dp">
 
-    <!-- The parent's photo on the weekday limit lock, cropped to a circle in code. -->
+    <!-- A parent's photo on the weekday limit and bedtime locks, cropped to a circle in code,
+         with a soft amber halo around it. -->
     <ImageView
         android:id="@+id/photo"
-        android:layout_width="200dp"
-        android:layout_height="200dp"
+        android:layout_width="220dp"
+        android:layout_height="220dp"
+        android:background="@drawable/photo_halo"
+        android:padding="10dp"
         android:contentDescription="@null"
         android:visibility="gone" />
 
@@ -20,37 +24,55 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="🌙"
-        android:textSize="72sp" />
+        android:textSize="80sp" />
 
     <TextView
         android:id="@+id/title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="20dp"
         android:gravity="center"
         android:text="Time for bed"
         android:textColor="#FFFFFF"
-        android:textSize="40sp"
+        android:textSize="44sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/unlockAt"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:gravity="center"
-        android:textColor="#90A4AE"
-        android:textSize="20sp" />
+        android:textColor="#AAB6C3"
+        android:textSize="22sp" />
+
+    <TextView
+        android:id="@+id/countdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFeatureSettings="tnum"
+        android:letterSpacing="0.05"
+        android:textColor="#FFFFFF"
+        android:textSize="72sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
 
     <Button
         android:id="@+id/ask"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="40dp"
-        android:paddingStart="32dp"
-        android:paddingEnd="32dp"
-        android:text="Ask for more time"
-        android:textSize="20sp" />
+        android:layout_marginTop="32dp"
+        android:background="@drawable/tv_button"
+        android:paddingStart="44dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="44dp"
+        android:paddingBottom="14dp"
+        android:stateListAnimator="@null"
+        android:text="🙋  Ask for more time"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/answer"
@@ -58,6 +80,15 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:gravity="center"
-        android:textColor="#B0BEC5"
-        android:textSize="18sp" />
+        android:textColor="#DFE6EE"
+        android:textSize="20sp" />
+
+    <TextView
+        android:id="@+id/watched"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textColor="#6F7C8A"
+        android:textSize="17sp" />
 </LinearLayout>

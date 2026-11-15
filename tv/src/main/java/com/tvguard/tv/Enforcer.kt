@@ -1,9 +1,6 @@
 package com.tvguard.tv
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
-import android.widget.Toast
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -83,16 +80,9 @@ object Enforcer {
         if (minutesToLock == null || minutesToLock > WARN_MINUTES) return
         if (nowMillis - store.lastWarnedAt < WARN_REPEAT_MS) return
         store.lastWarnedAt = nowMillis
-        val text = if (minutesToLock <= 1) {
-            "TV Guard: the TV locks in 1 minute"
-        } else {
-            "TV Guard: the TV locks in $minutesToLock minutes"
-        }
-        val main = Handler(Looper.getMainLooper())
-        // A long toast lasts about 3.5 seconds, so show it a few times in a row.
-        repeat(3) { i ->
-            main.postDelayed({ Toast.makeText(context.applicationContext, text, Toast.LENGTH_LONG).show() }, i * 3_600L)
-        }
+        val locksAt = java.time.LocalTime.now().plusMinutes(minutesToLock.toLong())
+            .format(java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT))
+        WarningPopup.show(context, minutesToLock, locksAt)
     }
 
     private fun status(
@@ -127,6 +117,7 @@ object Enforcer {
             timeZone = ZoneId.systemDefault().id,
             updatedAt = System.currentTimeMillis(),
             photoAt = if (LockPhoto.exists(context)) store.photoAt else 0,
+            bedtimePhotoAt = if (LockPhoto.exists(context, bedtime = true)) store.bedtimePhotoAt else 0,
         ).also { store.lastStatus = it }
     }
 

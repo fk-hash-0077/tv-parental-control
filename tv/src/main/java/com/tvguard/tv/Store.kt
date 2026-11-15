@@ -50,6 +50,8 @@ data class GuardConfig(
     val emergencySetAt: Long = 0,
     /** Set from the phone to remove protection so the app can be uninstalled. */
     val releaseOwner: Boolean = false,
+    /** The phone's "Lock now": the whole TV stays locked until the phone turns it off. */
+    val lockNow: Boolean = false,
 ) {
     fun toMap(): Map<String, Any> = mapOf(
         "unblockedDate" to unblockedDate,
@@ -74,6 +76,7 @@ data class GuardConfig(
         "emergencyCode" to emergencyCode,
         "emergencySetAt" to emergencySetAt,
         "releaseOwner" to releaseOwner,
+        "lockNow" to lockNow,
     )
 
     companion object {
@@ -118,6 +121,7 @@ data class GuardConfig(
                 emergencyCode = str("emergencyCode", "").filter { it in '0'..'3' },
                 emergencySetAt = long("emergencySetAt", 0),
                 releaseOwner = bool("releaseOwner", false),
+                lockNow = bool("lockNow", false),
             )
         }
     }
@@ -146,6 +150,8 @@ data class GuardStatus(
     val updatedAt: Long,
     /** When the lock screen photo on the TV was sent, or 0 when there is none. */
     val photoAt: Long = 0,
+    /** The same for the bedtime lock screen photo. */
+    val bedtimePhotoAt: Long = 0,
 ) {
     fun toMap(): Map<String, Any> = mapOf(
         "usedMinutesToday" to usedMinutesToday,
@@ -165,6 +171,7 @@ data class GuardStatus(
         "timeZone" to timeZone,
         "updatedAt" to updatedAt,
         "photoAt" to photoAt,
+        "bedtimePhotoAt" to bedtimePhotoAt,
     )
 }
 
@@ -261,6 +268,11 @@ class Store(context: Context) {
         set(value) = prefs.edit().putLong("update_handled", value).apply()
 
     /** When the server last confirmed a status write, for the TV screen. */
+    /** True once at least one phone is approved, so the TV can hide its pairing code. */
+    var paired: Boolean
+        get() = prefs.getBoolean("paired", false)
+        set(value) = prefs.edit().putBoolean("paired", value).apply()
+
     var syncSavedAt: Long
         get() = prefs.getLong("sync_saved_at", 0)
         set(value) = prefs.edit().putLong("sync_saved_at", value).apply()
@@ -278,6 +290,11 @@ class Store(context: Context) {
     var photoAt: Long
         get() = prefs.getLong("photo_at", 0)
         set(value) = prefs.edit().putLong("photo_at", value).apply()
+
+    /** When the phone sent the bedtime lock screen photo now saved on the TV, or 0. */
+    var bedtimePhotoAt: Long
+        get() = prefs.getLong("bedtime_photo_at", 0)
+        set(value) = prefs.edit().putLong("bedtime_photo_at", value).apply()
 
     /** The version a self-update is installing, so the new version can report success. */
     var updateTarget: Int
@@ -307,6 +324,7 @@ class Store(context: Context) {
                     timeZone = o.optString("timeZone"),
                     updatedAt = o.optLong("updatedAt"),
                     photoAt = o.optLong("photoAt"),
+                    bedtimePhotoAt = o.optLong("bedtimePhotoAt"),
                 )
             }.getOrNull()
         }

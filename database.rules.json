@@ -36,8 +36,12 @@
           ".write": "auth != null && (root.child('devices').child($id).child('parents').child(auth.uid).exists() || (root.child('devices').child($id).child('tvUid').val() === auth.uid && !newData.exists()))",
           ".validate": "newData.hasChildren(['at', 'data']) && newData.child('at').isNumber() && newData.child('data').isString() && newData.child('data').val().length <= 400000"
         },
+        "bedtimePhoto": {
+          ".write": "auth != null && (root.child('devices').child($id).child('parents').child(auth.uid).exists() || (root.child('devices').child($id).child('tvUid').val() === auth.uid && !newData.exists()))",
+          ".validate": "newData.hasChildren(['at', 'data']) && newData.child('at').isNumber() && newData.child('data').isString() && newData.child('data').val().length <= 400000"
+        },
         "$tvOwned": {
-          ".write": "auth != null && root.child('devices').child($id).child('tvUid').val() === auth.uid && $tvOwned !== 'tvUid' && $tvOwned !== 'parents' && $tvOwned !== 'pending' && $tvOwned !== 'tokens' && $tvOwned !== 'config' && $tvOwned !== 'requestAnswer' && $tvOwned !== 'photo'"
+          ".write": "auth != null && root.child('devices').child($id).child('tvUid').val() === auth.uid && $tvOwned !== 'tvUid' && $tvOwned !== 'parents' && $tvOwned !== 'pending' && $tvOwned !== 'tokens' && $tvOwned !== 'config' && $tvOwned !== 'requestAnswer' && $tvOwned !== 'photo' && $tvOwned !== 'bedtimePhoto'"
         }
       }
     }

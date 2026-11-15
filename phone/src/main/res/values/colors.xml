@@ -1,0 +1,13 @@
+<resources>
+    <color name="bg">#F4F6F9</color>
+    <color name="card">#FFFFFF</color>
+    <color name="text">#17202A</color>
+    <color name="muted">#6B7785</color>
+    <color name="line">#E3E8EE</color>
+    <color name="chip">#EEF2F6</color>
+    <color name="ringTrack">#E8EDF2</color>
+    <color name="accent">#3B82F6</color>
+    <color name="ok">#1F9D55</color>
+    <color name="warn">#D97706</color>
+    <color name="bad">#E5484D</color>
+</resources>

@@ -25,6 +25,7 @@ import com.google.firebase.database.ValueEventListener
  *   request        "ask for more time" from the lock screen; requestAnswer is the phone's reply
  *   events         unlocks and failed attempts, turned into notifications by the cloud functions
  *   photo          the lock screen photo from a phone; saved privately on the TV, then deleted here
+ *   bedtimePhoto   the same for the bedtime lock screen
  *
  * Standby, Wi-Fi drops and expired sign-ins used to leave the TV disconnected until a restart.
  * The connection can also look fine while nothing gets through (a dead socket after standby),
@@ -118,13 +119,15 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
             listen(deviceRef.child("parents")) { snapshot ->
                 parents = snapshot.children.mapNotNull { it.key }.toSet()
                 parentsLoaded = true
+                store.paired = parents.isNotEmpty()
                 approveFirstPhone()
             }
             listen(deviceRef.child("pending")) { snapshot ->
                 pending = snapshot.children.associate { (it.key ?: "") to (it.value as? Map<*, *> ?: emptyMap<String, Any>()) }
                 approveFirstPhone()
             }
-            listen(deviceRef.child("photo")) { snapshot -> receivePhoto(snapshot) }
+            listen(deviceRef.child("photo")) { snapshot -> receivePhoto(snapshot, bedtime = false) }
+            listen(deviceRef.child("bedtimePhoto")) { snapshot -> receivePhoto(snapshot, bedtime = true) }
             listen(deviceRef.child("requestAnswer")) { snapshot ->
                 val requestAt = (snapshot.child("requestAt").value as? Number)?.toLong() ?: return@listen
                 if (requestAt != store.lastRequestAt) return@listen
@@ -140,21 +143,22 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
      * The lock screen photo from a phone: saved in the TV's private storage, then removed from
      * Firebase so it isn't kept in the cloud. An empty photo means the phone removed it.
      */
-    private fun receivePhoto(snapshot: DataSnapshot) {
+    private fun receivePhoto(snapshot: DataSnapshot, bedtime: Boolean) {
         if (!snapshot.exists()) return
         val at = (snapshot.child("at").value as? Number)?.toLong() ?: 0L
         val data = snapshot.child("data").getValue(String::class.java).orEmpty()
         val photoRef = snapshot.ref
         Thread({
+            val which = if (bedtime) "Bedtime photo" else "Lock screen photo"
             if (data.isEmpty()) {
-                LockPhoto.delete(context)
-                store.photoAt = 0
-                AppLog.i(TAG, "Lock screen photo removed")
-            } else if (LockPhoto.save(context, data)) {
-                store.photoAt = at
-                AppLog.i(TAG, "Lock screen photo saved (${data.length / 1024} KB)")
+                LockPhoto.delete(context, bedtime)
+                if (bedtime) store.bedtimePhotoAt = 0 else store.photoAt = 0
+                AppLog.i(TAG, "$which removed")
+            } else if (LockPhoto.save(context, data, bedtime)) {
+                if (bedtime) store.bedtimePhotoAt = at else store.photoAt = at
+                AppLog.i(TAG, "$which saved (${data.length / 1024} KB)")
             } else {
-                AppLog.w(TAG, "Lock screen photo couldn't be read; ignoring it")
+                AppLog.w(TAG, "$which couldn't be read; ignoring it")
             }
             photoRef.removeValue()
             onConfigChanged()
