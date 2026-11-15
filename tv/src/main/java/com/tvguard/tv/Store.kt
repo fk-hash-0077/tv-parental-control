@@ -42,6 +42,8 @@ data class GuardConfig(
     val updateRequestAt: Long = 0,
     /** Bumped by the phone's Sync now button; the TV echoes it back as status.pongAt. */
     val pingAt: Long = 0,
+    /** Bumped by the phone's "Send logs" button. */
+    val logsRequestAt: Long = 0,
     /** Emergency arrow sequence set from the phone (digits 0-3), or empty when off. */
     val emergencyCode: String = "",
     /** When [emergencyCode] was set. Each one works once; the TV remembers which it used. */
@@ -68,6 +70,7 @@ data class GuardConfig(
         "overrideUntil" to overrideUntil,
         "updateRequestAt" to updateRequestAt,
         "pingAt" to pingAt,
+        "logsRequestAt" to logsRequestAt,
         "emergencyCode" to emergencyCode,
         "emergencySetAt" to emergencySetAt,
         "releaseOwner" to releaseOwner,
@@ -111,6 +114,7 @@ data class GuardConfig(
                 overrideUntil = long("overrideUntil", d.overrideUntil),
                 updateRequestAt = long("updateRequestAt", d.updateRequestAt),
                 pingAt = long("pingAt", d.pingAt),
+                logsRequestAt = long("logsRequestAt", 0),
                 emergencyCode = str("emergencyCode", "").filter { it in '0'..'3' },
                 emergencySetAt = long("emergencySetAt", 0),
                 releaseOwner = bool("releaseOwner", false),
@@ -262,6 +266,10 @@ class Store(context: Context) {
     var syncError: String
         get() = prefs.getString("sync_error", "") ?: ""
         set(value) = prefs.edit().putString("sync_error", value).apply()
+
+    var handledLogsRequestAt: Long
+        get() = prefs.getLong("logs_handled", 0)
+        set(value) = prefs.edit().putLong("logs_handled", value).apply()
 
     /** The version a self-update is installing, so the new version can report success. */
     var updateTarget: Int

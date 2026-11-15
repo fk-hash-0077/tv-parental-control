@@ -1,0 +1,135 @@
+package com.tvguard.phone
+
+import android.app.Activity
+import android.content.Intent
+import android.os.Handler
+import android.os.Looper
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import com.google.firebase.database.DataSnapshot
+import java.text.DateFormat
+import java.util.Date
+
+/**
+ * The Diagnostics dialog: what the phone and TV know about their connection, plus the TV's log
+ * after "Send logs". Share sends it all as text, for example to paste into a chat for help.
+ */
+class Diagnostics(
+    private val activity: Activity,
+    private val code: String,
+    private val phoneOnline: () -> Boolean,
+    private val status: () -> DataSnapshot?,
+    private val diag: () -> DataSnapshot?,
+    private val logs: () -> DataSnapshot?,
+    private val requestLogs: () -> Long,
+) {
+    private val handler = Handler(Looper.getMainLooper())
+    private var requestedAt = 0L
+
+    fun show() {
+        val pad = (20 * activity.resources.displayMetrics.density).toInt()
+        val text = TextView(activity).apply {
+            setPadding(pad, pad / 2, pad, 0)
+            setTextIsSelectable(true)
+            textSize = 14f
+        }
+        val scroll = ScrollView(activity).apply { addView(text) }
+        val refresh = object : Runnable {
+            override fun run() {
+                text.text = summary()
+                handler.postDelayed(this, 1_000)
+            }
+        }
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle("Diagnostics")
+            .setView(scroll)
+            .setPositiveButton("Share", null)
+            .setNeutralButton("Send logs", null)
+            .setNegativeButton("Close", null)
+            .setOnDismissListener { handler.removeCallbacks(refresh) }
+            .show()
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+            requestedAt = requestLogs()
+            text.text = summary()
+        }
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { share() }
+        handler.post(refresh)
+    }
+
+    private fun share() {
+        val logText = logs()?.child("text")?.getValue(String::class.java).orEmpty()
+        val body = buildString {
+            append(summary())
+            if (logText.isNotEmpty()) {
+                append("\n\n--- TV log ---\n")
+                append(logText)
+            }
+        }
+        val intent = Intent(Intent.ACTION_SEND)
+            .setType("text/plain")
+            .putExtra(Intent.EXTRA_SUBJECT, "TV Guard diagnostics")
+            .putExtra(Intent.EXTRA_TEXT, body)
+        activity.startActivity(Intent.createChooser(intent, "Share diagnostics"))
+    }
+
+    private fun summary(): String {
+        val now = System.currentTimeMillis()
+        val s = status()
+        val d = diag()
+        val l = logs()
+        fun long(snap: DataSnapshot?, key: String) = (snap?.child(key)?.value as? Number)?.toLong() ?: 0L
+        fun str(snap: DataSnapshot?, key: String) = snap?.child(key)?.getValue(String::class.java).orEmpty()
+        fun whenAgo(millis: Long) = if (millis <= 0) "never" else "${time(millis)} (${ago(now - millis)})"
+
+        val lines = mutableListOf<String>()
+        lines += "PHONE"
+        lines += "App version: ${BuildConfig.VERSION_CODE}"
+        lines += "This phone online: ${if (phoneOnline()) "yes" else "no"}"
+        lines += "TV code: ${code.chunked(4).joinToString("-")}"
+        lines += ""
+        lines += "TV"
+        lines += "Last report from the TV: ${whenAgo(long(s, "updatedAt"))}"
+        if (d == null || !d.exists()) {
+            lines += "No connection details yet (the TV needs version 12 or newer)."
+        } else {
+            lines += "TV Guard version: ${long(d, "version")}"
+            lines += "TV: ${str(d, "model")}, Android ${str(d, "android")}"
+            lines += "TV thinks it's connected: ${if (d.child("connected").value == true) "yes" else "no"}"
+            lines += "Last confirmed save: ${whenAgo(long(d, "confirmedAt"))}"
+            str(d, "syncError").takeIf { it.isNotEmpty() }?.let { lines += "Last sync error: $it" }
+            lines += "Reconnects since start: ${long(d, "reconnects")}"
+            val lastReconnect = long(d, "lastReconnectAt")
+            if (lastReconnect > 0) lines += "Last reconnect: ${whenAgo(lastReconnect)}, ${str(d, "lastReconnectReason")}"
+            lines += "Running since: ${whenAgo(long(d, "serviceStartedAt"))}"
+            lines += "Lock: ${str(d, "lockReason").ifEmpty { "unlocked" }}"
+        }
+        lines += "Last Sync now answered: ${whenAgo(long(s, "pongAt"))}"
+        str(s, "update").takeIf { it.isNotEmpty() }?.let { lines += "Update: $it" }
+        lines += ""
+        lines += "LOGS"
+        val logsAt = long(l, "at")
+        val logsFor = long(l, "requestAt")
+        lines += when {
+            requestedAt > 0 && logsFor < requestedAt -> "Asked the TV for its log. Waiting… (the TV must be on and connected)"
+            logsAt > 0 -> {
+                val count = str(l, "text").lines().count { it.isNotBlank() }
+                "Received ${whenAgo(logsAt)}, $count lines. Tap Share to send them."
+            }
+            else -> "Tap Send logs to fetch the TV's log for the last 24 hours."
+        }
+        return lines.joinToString("\n")
+    }
+
+    private fun time(millis: Long) = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(millis))
+
+    private fun ago(ms: Long): String {
+        val minutes = ms / 60_000
+        return when {
+            minutes < 1 -> "just now"
+            minutes < 60 -> "$minutes min ago"
+            minutes < 48 * 60 -> "${minutes / 60} h ago"
+            else -> "${minutes / 1440} days ago"
+        }
+    }
+}

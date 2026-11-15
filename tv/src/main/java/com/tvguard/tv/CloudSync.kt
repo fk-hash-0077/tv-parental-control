@@ -5,7 +5,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
-import android.util.Log
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
@@ -40,7 +39,13 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
     private val listeners = mutableListOf<Pair<Query, ValueEventListener>>()
     private var connectedListener: ValueEventListener? = null
     private var signingIn = false
-    private var lastReconnectAt = 0L
+    @Volatile var lastReconnectAt = 0L
+        private set
+    /** Reconnects since the app started, and why the last one happened, for the phone's diagnostics. */
+    @Volatile var reconnects = 0
+        private set
+    @Volatile var lastReconnectReason = ""
+        private set
 
     @Volatile var connected = false
         private set
@@ -59,7 +64,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
 
     private fun startOnMain() {
         if (!isConfigured) {
-            Log.i(TAG, "Firebase not configured; running on local settings only")
+            AppLog.i(TAG, "Firebase not configured; running on local settings only")
             return
         }
         watchConnection()
@@ -70,7 +75,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
             signingIn = true
             auth.signInAnonymously()
                 .addOnSuccessListener { signingIn = false; attach() }
-                .addOnFailureListener { signingIn = false; Log.w(TAG, "Anonymous sign-in failed", it) }
+                .addOnFailureListener { signingIn = false; AppLog.w(TAG, "Anonymous sign-in failed", it) }
         }
     }
 
@@ -79,7 +84,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val now = snapshot.getValue(Boolean::class.java) == true
-                if (now != connected) Log.i(TAG, if (now) "Connected" else "Disconnected")
+                if (now != connected) AppLog.i(TAG, if (now) "Connected" else "Disconnected")
                 if (!now && connected) disconnectedSince = System.currentTimeMillis()
                 connected = now
                 if (now) onConfigChanged()
@@ -96,7 +101,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         val deviceRef = FirebaseDatabase.getInstance().getReference("devices").child(store.deviceId)
         // Claim the code first: the database rules only accept the TV's writes once tvUid is set.
         deviceRef.child("tvUid").setValue(uid).addOnCompleteListener { task ->
-            if (!task.isSuccessful) Log.w(TAG, "Couldn't claim tvUid", task.exception)
+            if (!task.isSuccessful) AppLog.w(TAG, "Couldn't claim tvUid", task.exception)
             ref = deviceRef
             deviceRef.child("secret").setValue(Base64.encodeToString(store.unlockSecret, Base64.NO_WRAP))
             listen(deviceRef.child("config")) { snapshot ->
@@ -149,8 +154,8 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
             override fun onCancelled(error: DatabaseError) {
                 // Usually an expired sign-in or a rules change. Without this the TV stopped
                 // hearing from the phone until it was restarted.
-                Log.w(TAG, "Listener cancelled: ${error.message}; re-attaching")
-                main.postDelayed({ reconnect(force = true) }, RETRY_MS)
+                AppLog.w(TAG, "Listener cancelled: ${error.message}; re-attaching")
+                main.postDelayed({ reconnect(force = true, reason = "listener cancelled") }, RETRY_MS)
             }
         }
         query.addValueEventListener(listener)
@@ -165,13 +170,15 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
     }
 
     /** Forces a fresh connection and re-attaches the listeners. Safe to call often. */
-    fun reconnect(force: Boolean = false) = main.post {
+    fun reconnect(force: Boolean = false, reason: String = "") = main.post {
         if (!isConfigured) return@post
         if (!force && connected && ref != null) return@post
         val now = System.currentTimeMillis()
         if (now - lastReconnectAt < MIN_RECONNECT_GAP_MS) return@post
         lastReconnectAt = now
-        Log.i(TAG, "Reconnecting")
+        reconnects++
+        lastReconnectReason = reason
+        AppLog.i(TAG, "Reconnecting ($reason)")
         val db = FirebaseDatabase.getInstance()
         db.goOffline()
         db.goOnline()
@@ -199,9 +206,9 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         val offlineTooLong = !connected && now - disconnectedSince > STALE_MS
         val nothingConfirmed = now - lastAckAt > NO_ACK_MS && now - lastReconnectAt > NO_ACK_MS
         if (offlineTooLong || nothingConfirmed) {
-            Log.w(TAG, "Sync looks stuck (connected=$connected); starting a fresh connection")
+            AppLog.w(TAG, "Sync looks stuck (connected=$connected); starting a fresh connection")
             disconnectedSince = now
-            reconnect(force = true)
+            reconnect(force = true, reason = if (offlineTooLong) "offline too long" else "nothing confirmed for 3 min")
         }
     }
 
@@ -215,9 +222,9 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
             }
             .addOnFailureListener { e ->
                 store.syncError = e.message ?: e.javaClass.simpleName
-                Log.w(TAG, "Status write failed", e)
+                AppLog.w(TAG, "Status write failed", e)
                 // Usually an expired sign-in: refresh it and attach again.
-                reconnect(force = true)
+                reconnect(force = true, reason = "status write failed")
             }
         if (status.released) {
             // Don't release again if the app is set up as Device Owner later.
@@ -258,6 +265,40 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         val deviceRef = ref ?: return
         deviceRef.child("events").push().setValue(
             mapOf("type" to type, "at" to ServerValue.TIMESTAMP, "device" to Build.MODEL)
+        )
+    }
+
+    /** Connection details for the phone's Diagnostics screen. Sent with every check. */
+    fun pushDiag(serviceStartedAt: Long) {
+        val deviceRef = ref ?: return
+        deviceRef.child("diag").setValue(
+            mapOf(
+                "connected" to connected,
+                "confirmedAt" to store.syncSavedAt,
+                "syncError" to store.syncError,
+                "reconnects" to reconnects,
+                "lastReconnectAt" to lastReconnectAt,
+                "lastReconnectReason" to lastReconnectReason,
+                "serviceStartedAt" to serviceStartedAt,
+                "lockReason" to store.lockReason,
+                "version" to BuildConfig.VERSION_CODE,
+                "android" to Build.VERSION.RELEASE,
+                "model" to Build.MODEL,
+                "at" to System.currentTimeMillis(),
+            )
+        )
+    }
+
+    /** Uploads the TV's recent log for the phone's "Send logs"; replaces any earlier upload. */
+    fun uploadLogs(requestAt: Long, text: String) {
+        val deviceRef = ref ?: return
+        deviceRef.child("logs").setValue(
+            mapOf(
+                "requestAt" to requestAt,
+                "at" to System.currentTimeMillis(),
+                "version" to BuildConfig.VERSION_CODE,
+                "text" to text,
+            )
         )
     }
 

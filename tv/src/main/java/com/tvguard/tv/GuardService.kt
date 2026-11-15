@@ -31,6 +31,7 @@ class GuardService : Service() {
 
     private var lastCatalogAt = 0L
     private var lastUsageAt = 0L
+    private val startedAt = System.currentTimeMillis()
 
     private val tick = object : Runnable {
         override fun run() {
@@ -40,6 +41,8 @@ class GuardService : Service() {
             publishUsage(result.usage)
             publishCatalog()
             checkForUpdateRequest()
+            checkForLogsRequest()
+            sync.pushDiag(startedAt)
             handler.postDelayed(this, INTERVAL_MS)
         }
     }
@@ -55,14 +58,14 @@ class GuardService : Service() {
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             // The old connection often died during standby while still looking open.
-            sync.reconnect(force = true)
+            sync.reconnect(force = true, reason = "screen on")
             handler.post(tick)
         }
     }
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            sync.reconnect(force = true)
+            sync.reconnect(force = true, reason = "network available")
             handler.post(tick)
         }
     }
@@ -84,6 +87,16 @@ class GuardService : Service() {
         sync.pushHistory(UsageTracker(this).history(HISTORY_DAYS))
     }
 
+    /** The phone's "Send logs": upload the last 24 hours of the TV's log, up to about 100 KB. */
+    private fun checkForLogsRequest() {
+        val store = Store(this)
+        val requestedAt = store.config.logsRequestAt
+        if (requestedAt <= store.handledLogsRequestAt) return
+        store.handledLogsRequestAt = requestedAt
+        AppLog.i(TAG, "Uploading logs for the phone")
+        sync.uploadLogs(requestedAt, AppLog.recent(hours = 24, maxChars = 100_000))
+    }
+
     private fun checkForUpdateRequest() {
         val store = Store(this)
         val requestedAt = store.config.updateRequestAt
@@ -94,6 +107,8 @@ class GuardService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        AppLog.init(this)
+        AppLog.i(TAG, "Started, version ${BuildConfig.VERSION_CODE}")
         startInForeground()
         Updater.reportFinished(this)
         thread = HandlerThread("guard").also { it.start() }
@@ -152,6 +167,7 @@ class GuardService : Service() {
     }
 
     companion object {
+        private const val TAG = "TvGuard"
         private const val CHANNEL = "guard"
         private const val NOTIFICATION_ID = 1
         private const val INTERVAL_MS = 30_000L

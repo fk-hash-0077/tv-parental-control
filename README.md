@@ -121,6 +121,13 @@ Tap **Update TV** in the phone app. The TV downloads the newest `tv-debug.apk` f
 release and installs itself, even while installs are blocked. For the phone, tap
 **Get newest phone app**.
 
+## Troubleshooting
+
+In the phone app, **Diagnostics and logs** shows when the TV last reported in, whether its saves
+are reaching Firebase, how often it reconnected and why, and its version. **Send logs** asks the TV
+to upload the last 24 hours of its own log (only what TV Guard did, up to about 100 KB); **Share**
+then sends the diagnostics and log as text. Uploaded logs are deleted after 7 days.
+
 ## Removing protection
 
 In the phone app, use **Remove protection from TV**. The TV unlocks YouTube, gives up Device Owner,

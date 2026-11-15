@@ -169,17 +169,20 @@ class LockActivity : AppCompatActivity() {
         val emergency = store.emergencyCode
         when {
             counter != null -> {
+                AppLog.i("TvGuardLock", "Unlocked with a one-time code")
                 store.lastCodeCounter = counter
                 grantUnlock(now)
                 sync?.sendEvent("unlock")
             }
             emergency.isNotEmpty() && entered == emergency -> {
+                AppLog.i("TvGuardLock", "Unlocked with the emergency code")
                 store.usedEmergencySetAt = store.config.emergencySetAt
                 grantUnlock(now)
                 sync?.sendEvent("emergency")
                 sync?.clearEmergencyCode()
             }
             else -> {
+                AppLog.i("TvGuardLock", "Wrong unlock code")
                 val failed = store.failedAttempts + 1
                 if (failed >= MAX_FAILED) {
                     store.failedAttempts = 0

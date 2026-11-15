@@ -119,13 +119,18 @@ exports.lockScreenEvent = onValueCreated(
 
 /**
  * Every 10 minutes: tells parents when a TV has stopped checking in for 20 minutes,
- * sends the weekly report on Sunday at 8 pm TV time, and trims old per-app history.
+ * sends the weekly report on Sunday at 8 pm TV time, and trims old history and logs.
  */
 exports.checkTvs = onSchedule({ schedule: "every 10 minutes", region: db.region }, async () => {
   const devices = (await admin.database().ref("devices").get()).val() || {};
   const now = Date.now();
   for (const [id, device] of Object.entries(devices)) {
-    if (!device || !device.tokens) continue;
+    if (!device) continue;
+    // Logs sent from the TV for troubleshooting are kept for 7 days.
+    if (device.logs && now - (Number(device.logs.at) || 0) > 7 * 86400000) {
+      await admin.database().ref(`devices/${id}/logs`).remove();
+    }
+    if (!device.tokens) continue;
     const status = device.status || {};
     const alerts = device.alerts || {};
     const updates = {};

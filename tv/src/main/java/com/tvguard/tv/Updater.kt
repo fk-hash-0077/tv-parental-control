@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
-import android.util.Log
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -25,6 +24,7 @@ object Updater {
     fun run(context: Context, onStateChanged: () -> Unit) {
         val store = Store(context)
         fun state(text: String) {
+            AppLog.i(TAG, text)
             store.updateState = text
             onStateChanged()
         }
@@ -57,7 +57,7 @@ object Updater {
             install(context, apk)
             // The app restarts once the install finishes; BootReceiver brings the service back.
         } catch (e: Exception) {
-            Log.w(TAG, "Update failed", e)
+            AppLog.w(TAG, "Update failed", e)
             store.updatingSince = 0
             state("Update failed: ${e.message ?: e.javaClass.simpleName}")
         }
@@ -149,6 +149,8 @@ class UpdateReceiver : BroadcastReceiver() {
         store.updateTarget = 0
         val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "status $status"
         store.updateState = "Update failed: $message"
+        AppLog.init(context)
+        AppLog.w("TvGuardUpdate", "Install failed: $message")
         GuardService.start(context)
     }
 }
