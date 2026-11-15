@@ -144,6 +144,8 @@ data class GuardStatus(
     val pongAt: Long,
     val timeZone: String,
     val updatedAt: Long,
+    /** When the lock screen photo on the TV was sent, or 0 when there is none. */
+    val photoAt: Long = 0,
 ) {
     fun toMap(): Map<String, Any> = mapOf(
         "usedMinutesToday" to usedMinutesToday,
@@ -162,6 +164,7 @@ data class GuardStatus(
         "pongAt" to pongAt,
         "timeZone" to timeZone,
         "updatedAt" to updatedAt,
+        "photoAt" to photoAt,
     )
 }
 
@@ -271,6 +274,11 @@ class Store(context: Context) {
         get() = prefs.getLong("logs_handled", 0)
         set(value) = prefs.edit().putLong("logs_handled", value).apply()
 
+    /** When the phone sent the lock screen photo now saved on the TV, or 0. */
+    var photoAt: Long
+        get() = prefs.getLong("photo_at", 0)
+        set(value) = prefs.edit().putLong("photo_at", value).apply()
+
     /** The version a self-update is installing, so the new version can report success. */
     var updateTarget: Int
         get() = prefs.getInt("update_target", 0)
@@ -298,6 +306,7 @@ class Store(context: Context) {
                     pongAt = o.optLong("pongAt"),
                     timeZone = o.optString("timeZone"),
                     updatedAt = o.optLong("updatedAt"),
+                    photoAt = o.optLong("photoAt"),
                 )
             }.getOrNull()
         }

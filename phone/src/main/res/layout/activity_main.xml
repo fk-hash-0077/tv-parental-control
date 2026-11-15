@@ -429,6 +429,34 @@
                 android:layout_height="wrap_content"
                 android:text="Set emergency code" />
 
+            <!-- Lock screen photo -->
+            <TextView style="@style/Section" android:text="Lock screen photo" />
+
+            <TextView
+                android:id="@+id/photoLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/photoChoose"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Choose photo" />
+
+                <Button
+                    android:id="@+id/photoRemove"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="Remove photo" />
+            </LinearLayout>
+
             <!-- Updates -->
             <TextView style="@style/Section" android:text="TV Guard on the TV" />
 

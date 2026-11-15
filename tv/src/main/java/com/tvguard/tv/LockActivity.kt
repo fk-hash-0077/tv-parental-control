@@ -7,7 +7,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
+import android.view.View
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -24,6 +26,9 @@ import java.time.format.FormatStyle
  * A parent can unlock it for 30 minutes by typing arrows on the remote and pressing OK:
  * either the one-time code shown in the phone app, or the emergency code set from the phone.
  * Nothing on screen changes while the arrows are typed.
+ *
+ * When the weekday limit is used up and a parent sent a photo from the phone, the photo is shown
+ * in a round frame in place of the clock icon.
  */
 class LockActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
@@ -32,6 +37,9 @@ class LockActivity : AppCompatActivity() {
     private lateinit var store: Store
     private lateinit var askButton: Button
     private lateinit var answer: TextView
+    private lateinit var photo: ImageView
+    /** The photoAt of the circle now on screen, so it is only redrawn when the photo changes. */
+    private var shownPhotoAt = -1L
 
     private val check = object : Runnable {
         override fun run() {
@@ -50,6 +58,7 @@ class LockActivity : AppCompatActivity() {
         store = Store(this)
         askButton = findViewById(R.id.ask)
         answer = findViewById(R.id.answer)
+        photo = findViewById(R.id.photo)
         askButton.setOnClickListener { askForMoreTime() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = Unit
@@ -100,7 +109,28 @@ class LockActivity : AppCompatActivity() {
                 detail.text = "It resets at midnight"
             }
         }
+        val showPhoto = store.lockReason == "limit" && !Rules.isWeekend(LocalDateTime.now()) && showPhoto()
+        photo.visibility = if (showPhoto) View.VISIBLE else View.GONE
+        icon.visibility = if (showPhoto) View.GONE else View.VISIBLE
         answer.text = answerText()
+    }
+
+    /** Draws the parent's photo into the round frame. False when there is no photo. */
+    private fun showPhoto(): Boolean {
+        if (!LockPhoto.exists(this)) {
+            shownPhotoAt = -1L
+            photo.setImageDrawable(null)
+            return false
+        }
+        val at = store.photoAt
+        if (at != shownPhotoAt || photo.drawable == null) {
+            val size = (PHOTO_DP * resources.displayMetrics.density).toInt()
+            val ring = (RING_DP * resources.displayMetrics.density).toInt()
+            val circle = LockPhoto.circle(this, size, ring) ?: return false
+            photo.setImageBitmap(circle)
+            shownPhotoAt = at
+        }
+        return true
     }
 
     private fun answerText(): String {
@@ -218,6 +248,8 @@ class LockActivity : AppCompatActivity() {
 
     companion object {
         private const val CHECK_MS = 2_000L
+        private const val PHOTO_DP = 200
+        private const val RING_DP = 4
         private const val TYPING_GAP_MS = 10_000L
         private const val MIN_CODE = 4
         private const val MAX_TYPED = 12

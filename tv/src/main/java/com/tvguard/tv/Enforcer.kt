@@ -126,6 +126,7 @@ object Enforcer {
             pongAt = config.pingAt,
             timeZone = ZoneId.systemDefault().id,
             updatedAt = System.currentTimeMillis(),
+            photoAt = if (LockPhoto.exists(context)) store.photoAt else 0,
         ).also { store.lastStatus = it }
     }
 
