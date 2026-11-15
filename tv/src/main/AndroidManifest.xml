@@ -71,6 +71,17 @@
             </intent-filter>
         </receiver>
 
+        <!-- Lets TV Guard read what's playing (titles) for the phone. Turned on once over adb:
+             adb shell cmd notification allow_listener com.tvguard.tv/com.tvguard.tv.MediaListener -->
+        <service
+            android:name=".MediaListener"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- Brings the background service back after an update, or if it ever stops. -->
         <service
             android:name=".KeepAliveJob"

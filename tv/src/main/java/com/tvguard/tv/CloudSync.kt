@@ -24,6 +24,7 @@ import com.google.firebase.database.ValueEventListener
  *   status, apps, history, usage, appHistory   written here
  *   request        "ask for more time" from the lock screen; requestAnswer is the phone's reply
  *   events         unlocks and failed attempts, turned into notifications by the cloud functions
+ *   nowPlaying     the app on screen and, where the app shares it, the title playing
  *   photo          the lock screen photo from a phone; saved privately on the TV, then deleted here
  *   bedtimePhoto   the same for the bedtime lock screen
  *
@@ -197,6 +198,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         listeners.forEach { (query, listener) -> query.removeEventListener(listener) }
         listeners.clear()
         ref = null
+        lastNowPlaying = null
         parentsLoaded = false
     }
 
@@ -282,6 +284,17 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         deviceRef.child("usage").setValue(mapOf("date" to date, "apps" to apps))
         // Kept per day for the weekly report's top apps; the cloud function trims old days.
         deviceRef.child("appHistory").child(date).setValue(apps)
+    }
+
+    @Volatile private var lastNowPlaying: Map<String, Any>? = null
+
+    /** What's on screen, for the phone's "Now playing" card. Written only when it changes. */
+    fun pushNowPlaying(values: Map<String, Any>) {
+        val deviceRef = ref ?: return
+        if (values == lastNowPlaying) return
+        lastNowPlaying = values
+        deviceRef.child("nowPlaying").setValue(values + ("at" to System.currentTimeMillis()))
+            .addOnFailureListener { lastNowPlaying = null }
     }
 
     /** "Ask for more time" from the lock screen. The cloud function sends it to the phones. */

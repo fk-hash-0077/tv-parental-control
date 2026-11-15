@@ -39,6 +39,8 @@ class GuardService : Service() {
             val result = Enforcer.evaluate(this@GuardService)
             sync.pushStatus(result.status)
             publishUsage(result.usage)
+            lastForeground = result.usage.foreground
+            publishNowPlaying()
             publishCatalog()
             checkForUpdateRequest()
             checkForLogsRequest()
@@ -68,6 +70,27 @@ class GuardService : Service() {
             sync.reconnect(force = true, reason = "network available")
             handler.post(tick)
         }
+    }
+
+    /** The app on screen at the last check, for [publishNowPlaying] between checks. */
+    private var lastForeground: String? = null
+
+    /** Sent only when something changed, so this costs nothing while one show keeps playing. */
+    private fun publishNowPlaying() {
+        val app = lastForeground
+        val media = NowPlaying.mediaFor(app)
+        val pkg = app ?: media?.pkg.orEmpty()
+        val label = if (pkg.isEmpty()) "" else AppCatalog.labels(this, setOf(pkg))[pkg] ?: pkg
+        sync.pushNowPlaying(
+            mapOf(
+                "pkg" to pkg,
+                "app" to label,
+                "title" to media?.title.orEmpty(),
+                "subtitle" to media?.subtitle.orEmpty(),
+                "playing" to (media?.playing == true),
+                "titleAccess" to NowPlaying.hasAccess(this),
+            )
+        )
     }
 
     private fun publishUsage(usage: UsageTracker.Usage) {
@@ -112,6 +135,8 @@ class GuardService : Service() {
         startInForeground()
         Updater.reportFinished(this)
         runCatching { KeepAliveJob.schedulePeriodic(this) }
+        NowPlaying.onChange = { handler.post { publishNowPlaying() } }
+        NowPlaying.rebind(this)
         thread = HandlerThread("guard").also { it.start() }
         handler = Handler(thread.looper)
         sync = CloudSync(this) { handler.post(tick) }
@@ -138,6 +163,7 @@ class GuardService : Service() {
     override fun onDestroy() {
         runCatching { unregisterReceiver(screenReceiver) }
         runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback) }
+        NowPlaying.onChange = null
         handler.removeCallbacksAndMessages(null)
         thread.quitSafely()
         if (current === sync) current = null

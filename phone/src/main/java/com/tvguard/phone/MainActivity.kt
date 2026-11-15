@@ -69,6 +69,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var leftLabel: TextView
     private lateinit var leftValue: TextView
     private lateinit var topApp: TextView
+    private lateinit var nowTitle: TextView
+    private lateinit var nowDetail: TextView
     private lateinit var diagConnection: TextView
     private lateinit var bonusClear: View
     private lateinit var lockNowIcon: TextView
@@ -79,6 +81,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabs: List<Triple<TextView, View, String>>
     private var currentTab = 0
     private var usage: DataSnapshot? = null
+    private var nowPlaying: DataSnapshot? = null
     private lateinit var allowSwitch: SwitchCompat
     private lateinit var bonusLabel: TextView
     private lateinit var weekdayLimit: EditText
@@ -193,6 +196,8 @@ class MainActivity : AppCompatActivity() {
         leftLabel = findViewById(R.id.leftLabel)
         leftValue = findViewById(R.id.leftValue)
         topApp = findViewById(R.id.topApp)
+        nowTitle = findViewById(R.id.nowTitle)
+        nowDetail = findViewById(R.id.nowDetail)
         diagConnection = findViewById(R.id.diagConnection)
         bonusClear = findViewById(R.id.bonusClear)
         lockNowIcon = findViewById(R.id.lockNowIcon)
@@ -461,6 +466,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
         listen(ref.child("usage")) { usage = it; render() }
+        listen(ref.child("nowPlaying")) { nowPlaying = it; render() }
         listen(ref.child("secret")) { snapshot ->
             snapshot.getValue(String::class.java)?.let { prefs.edit().putString("secret", it).apply() }
         }
@@ -722,6 +728,7 @@ class MainActivity : AppCompatActivity() {
         leftValue.setTextColor(if (limit > 0) tone else color(R.color.muted))
         val top = todaysApps().firstOrNull()
         topApp.text = top?.let { "${it.first} · ${formatMinutes(it.third)}" } ?: "Nothing yet"
+        renderNowPlaying(locked)
 
         // Status pills
         pills.removeAllViews()
@@ -754,6 +761,47 @@ class MainActivity : AppCompatActivity() {
         unblockIcon.text = if (unblocked) "■" else "▶"
         unblockLabel.text = if (unblocked) "Block apps" else "Unblock apps"
         tint(unblockIcon, if (unblocked) R.color.warn else R.color.ok)
+    }
+
+    /** The "Now playing" card: the app on screen and, if the app shares it, the title. */
+    private fun renderNowPlaying(locked: Boolean) {
+        val n = nowPlaying
+        if (n == null || !n.exists()) {
+            nowTitle.text = "Waiting for the TV"
+            nowDetail.text = "Shows here once the TV has the newest TV Guard."
+            return
+        }
+        fun text(key: String) = n.child(key).getValue(String::class.java).orEmpty()
+        val app = text("app")
+        val title = text("title")
+        val subtitle = text("subtitle")
+        val playing = n.child("playing").getValue(Boolean::class.java) == true
+        val titleAccess = n.child("titleAccess").getValue(Boolean::class.java) == true
+        val stale = System.currentTimeMillis() - lastSeen() > 3 * 60_000L
+        val since = if (stale && lastSeen() > 0) " (as of ${formatWhen(lastSeen())})" else ""
+        when {
+            locked -> {
+                nowTitle.text = "Nothing, the TV is locked"
+                nowDetail.text = ""
+            }
+            app.isEmpty() && title.isEmpty() -> {
+                nowTitle.text = "Nothing on screen$since"
+                nowDetail.text = "Home screen, standby or TV off"
+            }
+            title.isNotEmpty() -> {
+                nowTitle.text = title
+                nowDetail.text = listOf(subtitle, app, if (playing) "Playing" else "Paused")
+                    .filter { it.isNotEmpty() }.joinToString(" · ") + since
+            }
+            else -> {
+                nowTitle.text = app + since
+                nowDetail.text = if (titleAccess) {
+                    "This app doesn't share what's playing"
+                } else {
+                    "Titles are off on the TV. Turn them on once over adb (see README)."
+                }
+            }
+        }
     }
 
     private fun shortConnection(text: String): String = when {
