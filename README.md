@@ -12,6 +12,9 @@ Parental controls for a Google TV / Android TV, run from a phone.
   - On the lock screen, a parent can type a **one-time arrow code** from the phone app (or a
     single-use emergency code) on the remote to unlock for 30 minutes, and kids can press
     **Ask for more time**.
+  - A parent can pick a **lock screen photo** on the phone. It shows in a round frame when the
+    weekday limit is used up. The photo passes through Firebase only until the TV saves it in its
+    private storage, then the TV deletes it from Firebase. It is never part of this repository.
   - The TV's clock stays automatic, and app installs are blocked unless the phone allows them.
   - It updates itself from GitHub releases when the phone's **Update TV** button is tapped.
 - **Phone app** (`phone/`) opens only after the phone's fingerprint or screen lock. It shows
