@@ -54,8 +54,11 @@ object Updater {
             store.updateTarget = version
             store.updatingSince = System.currentTimeMillis()
             Policy(context).setInstallsAllowed(true)
+            // Installing replaces the running app, which stops TV Guard (not the TV). Three things
+            // bring it straight back: the install result sent to UpdateReceiver, the "app was
+            // updated" broadcast to BootReceiver, and this job in case the TV drops both.
+            KeepAliveJob.scheduleAfterUpdate(context, 20_000L)
             install(context, apk)
-            // The app restarts once the install finishes; BootReceiver brings the service back.
         } catch (e: Exception) {
             AppLog.w(TAG, "Update failed", e)
             store.updatingSince = 0
@@ -139,17 +142,25 @@ object Updater {
     }
 }
 
-/** Receives the install result. On success the app is replaced and restarted instead. */
+/**
+ * Receives the install result. After a successful self-update this runs in the new version,
+ * so it starts the service again straight away and the phone hears "Updated to version N".
+ */
 class UpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
-        if (status == PackageInstaller.STATUS_SUCCESS) return
+        AppLog.init(context)
+        if (status == PackageInstaller.STATUS_SUCCESS) {
+            AppLog.i("TvGuardUpdate", "Install finished, starting version ${BuildConfig.VERSION_CODE}")
+            Updater.reportFinished(context)
+            GuardService.start(context)
+            return
+        }
         val store = Store(context)
         store.updatingSince = 0
         store.updateTarget = 0
         val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "status $status"
         store.updateState = "Update failed: $message"
-        AppLog.init(context)
         AppLog.w("TvGuardUpdate", "Install failed: $message")
         GuardService.start(context)
     }
