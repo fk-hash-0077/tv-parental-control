@@ -253,6 +253,16 @@ class Store(context: Context) {
         get() = prefs.getLong("update_handled", 0)
         set(value) = prefs.edit().putLong("update_handled", value).apply()
 
+    /** When the server last confirmed a status write, for the TV screen. */
+    var syncSavedAt: Long
+        get() = prefs.getLong("sync_saved_at", 0)
+        set(value) = prefs.edit().putLong("sync_saved_at", value).apply()
+
+    /** The last error from writing to the server, or empty. */
+    var syncError: String
+        get() = prefs.getString("sync_error", "") ?: ""
+        set(value) = prefs.edit().putString("sync_error", value).apply()
+
     /** The version a self-update is installing, so the new version can report success. */
     var updateTarget: Int
         get() = prefs.getInt("update_target", 0)

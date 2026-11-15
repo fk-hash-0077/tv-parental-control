@@ -27,6 +27,9 @@ import com.google.firebase.database.ValueEventListener
  *   events         unlocks and failed attempts, turned into notifications by the cloud functions
  *
  * Standby, Wi-Fi drops and expired sign-ins used to leave the TV disconnected until a restart.
+ * The connection can also look fine while nothing gets through (a dead socket after standby),
+ * so the TV also watches whether its status writes are confirmed by the server, and starts a
+ * fresh connection when none has been confirmed for a few minutes.
  * Now a cancelled listener re-attaches, and [watchdog] (every minute) and [reconnect] (on wake and
  * when Wi-Fi returns) force a fresh connection whenever the TV has been offline too long.
  */
@@ -42,6 +45,8 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
     @Volatile var connected = false
         private set
     @Volatile private var disconnectedSince = System.currentTimeMillis()
+    /** When the server last confirmed a status write. Shown on the TV screen too. */
+    @Volatile private var lastAckAt = System.currentTimeMillis()
 
     private var parents: Set<String> = emptySet()
     private var parentsLoaded = false
@@ -179,15 +184,23 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         }
     }
 
-    /** Called every minute. Reconnects if the TV has been disconnected for a while. */
+    /**
+     * Called every minute. Reconnects if the TV has been disconnected for a while, or if no
+     * status write has been confirmed for a few minutes even though it looks connected.
+     */
     fun watchdog() = main.post {
         if (!isConfigured) return@post
-        if (ref == null && !signingIn) {
+        val now = System.currentTimeMillis()
+        if (ref == null && !signingIn && now - lastReconnectAt > NO_ACK_MS) {
+            lastReconnectAt = now
             startOnMain()
             return@post
         }
-        if (!connected && System.currentTimeMillis() - disconnectedSince > STALE_MS) {
-            disconnectedSince = System.currentTimeMillis()
+        val offlineTooLong = !connected && now - disconnectedSince > STALE_MS
+        val nothingConfirmed = now - lastAckAt > NO_ACK_MS && now - lastReconnectAt > NO_ACK_MS
+        if (offlineTooLong || nothingConfirmed) {
+            Log.w(TAG, "Sync looks stuck (connected=$connected); starting a fresh connection")
+            disconnectedSince = now
             reconnect(force = true)
         }
     }
@@ -195,6 +208,17 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
     fun pushStatus(status: GuardStatus) {
         val deviceRef = ref ?: return
         deviceRef.child("status").setValue(status.toMap())
+            .addOnSuccessListener {
+                lastAckAt = System.currentTimeMillis()
+                store.syncSavedAt = lastAckAt
+                store.syncError = ""
+            }
+            .addOnFailureListener { e ->
+                store.syncError = e.message ?: e.javaClass.simpleName
+                Log.w(TAG, "Status write failed", e)
+                // Usually an expired sign-in: refresh it and attach again.
+                reconnect(force = true)
+            }
         if (status.released) {
             // Don't release again if the app is set up as Device Owner later.
             deviceRef.child("config").child("releaseOwner").setValue(false)
@@ -257,6 +281,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         private const val TAG = "TvGuardSync"
         private const val RETRY_MS = 5_000L
         private const val STALE_MS = 90_000L
+        private const val NO_ACK_MS = 3 * 60_000L
         private const val MIN_RECONNECT_GAP_MS = 10_000L
     }
 }

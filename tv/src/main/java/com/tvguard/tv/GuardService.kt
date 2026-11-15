@@ -54,14 +54,15 @@ class GuardService : Service() {
     /** Waking from standby: reconnect straight away rather than waiting for the watchdog. */
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            sync.reconnect()
+            // The old connection often died during standby while still looking open.
+            sync.reconnect(force = true)
             handler.post(tick)
         }
     }
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            sync.reconnect()
+            sync.reconnect(force = true)
             handler.post(tick)
         }
     }
