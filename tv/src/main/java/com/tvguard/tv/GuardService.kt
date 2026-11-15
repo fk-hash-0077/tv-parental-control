@@ -111,6 +111,7 @@ class GuardService : Service() {
         AppLog.i(TAG, "Started, version ${BuildConfig.VERSION_CODE}")
         startInForeground()
         Updater.reportFinished(this)
+        runCatching { KeepAliveJob.schedulePeriodic(this) }
         thread = HandlerThread("guard").also { it.start() }
         handler = Handler(thread.looper)
         sync = CloudSync(this) { handler.post(tick) }

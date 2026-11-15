@@ -121,6 +121,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var timeButtons: List<Triple<Button, String, Int>>
 
     private var deviceRef: DatabaseReference? = null
+    /** Set when Update TV is tapped, until the TV reports how the update ended. */
+    private var updateAskedAt = 0L
+    private var updateTextAtAsk = ""
     private val listeners = mutableListOf<Pair<Query, ValueEventListener>>()
     private var approvalListener: Pair<Query, ValueEventListener>? = null
     private var config: Map<*, *> = emptyMap<String, Any>()
@@ -248,7 +251,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
         findViewById<Button>(R.id.updateTv).setOnClickListener {
-            write(mapOf("updateRequestAt" to System.currentTimeMillis()))
+            updateAskedAt = System.currentTimeMillis()
+            updateTextAtAsk = tvStatus?.child("update")?.getValue(String::class.java).orEmpty()
+            write(mapOf("updateRequestAt" to updateAskedAt))
             toast("Asked the TV to update")
         }
         findViewById<Button>(R.id.phoneUpdate).setOnClickListener {
@@ -553,6 +558,21 @@ class MainActivity : AppCompatActivity() {
             version?.let { "Version $it" },
             update.ifEmpty { null },
         ).joinToString("\n").ifEmpty { "Waiting for the TV" }
+        announceUpdateResult(update)
+    }
+
+    /** After Update TV, tells the parent once how it ended, so they don't have to watch the label. */
+    private fun announceUpdateResult(update: String) {
+        if (updateAskedAt == 0L || update == updateTextAtAsk) return
+        val finished = update.startsWith("Updated to") || update.startsWith("Up to date") ||
+            update.startsWith("Update failed") || update.startsWith("No TV update")
+        if (!finished) return
+        updateAskedAt = 0L
+        AlertDialog.Builder(this)
+            .setTitle(if (update.startsWith("Update failed")) "TV update didn't work" else "TV update")
+            .setMessage(update)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun renderPhoto(slot: PhotoSlot) {
