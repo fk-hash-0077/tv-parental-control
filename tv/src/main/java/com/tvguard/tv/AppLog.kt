@@ -31,6 +31,47 @@ object AppLog {
         write("W", tag, if (error != null) "$message: ${error.javaClass.simpleName}: ${error.message}" else message)
     }
 
+    /** An error with its stack trace (the first [MAX_TRACE_LINES] lines), e.g. a step of a check that failed. */
+    fun e(tag: String, message: String, error: Throwable) {
+        Log.e(tag, message, error)
+        write("E", tag, "$message\n${trace(error)}")
+    }
+
+    /**
+     * Called just before Android closes TV Guard for an uncaught exception: logs the stack trace
+     * and keeps a short copy that the next start reports to the phone (see Protection).
+     */
+    fun recordCrash(context: Context, thread: Thread, error: Throwable) {
+        init(context)
+        val trace = trace(error)
+        Log.e("TvGuardCrash", "Crashed in thread ${thread.name}", error)
+        write("E", "TvGuardCrash", "Crashed in thread ${thread.name}\n$trace")
+        context.getSharedPreferences("guard", Context.MODE_PRIVATE).edit()
+            .putLong(KEY_CRASH_AT, System.currentTimeMillis())
+            .putString(KEY_CRASH, "thread ${thread.name}: ${trace.lineSequence().take(6).joinToString(" | ")}")
+            // commit, not apply: the process is about to end.
+            .commit()
+    }
+
+    /** The last crash recorded by [recordCrash], as (when, short trace), or null. */
+    fun lastCrash(context: Context): Pair<Long, String>? {
+        val prefs = context.getSharedPreferences("guard", Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_CRASH_AT, 0)
+        val text = prefs.getString(KEY_CRASH, null)
+        return if (at > 0 && text != null) at to text else null
+    }
+
+    /** The exception and its causes, one frame per line, at most [MAX_TRACE_LINES] lines. */
+    private fun trace(error: Throwable): String =
+        Log.getStackTraceString(error).lineSequence()
+            .filter { it.isNotBlank() }
+            .take(MAX_TRACE_LINES)
+            .joinToString("\n") { "    " + it.trim() }
+
+    private const val MAX_TRACE_LINES = 40
+    private const val KEY_CRASH = "last_crash"
+    private const val KEY_CRASH_AT = "last_crash_at"
+
     @Synchronized
     private fun write(level: String, tag: String, message: String) {
         val f = file ?: return

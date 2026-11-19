@@ -156,6 +156,13 @@ class Diagnostics(
                     if (back.isNotEmpty()) lines += "  Came back: $back"
                 }
             }
+            val crashAt = (d.child("lastCrashAt").value as? Number)?.toLong() ?: 0L
+            val crash = d.child("lastCrash").getValue(String::class.java).orEmpty()
+            if (crashAt > 0 && crash.isNotEmpty()) {
+                lines += ""
+                lines += "Last crash: ${fmt(crashAt)}"
+                lines += "  $crash"
+            }
             lines += ""
             lines += "${if (yes("forceStopBlocked")) "✓" else "✗"} Can't be force-stopped"
             lines += "${if (yes("lifeline")) "✓" else "✗"} Lifeline connected" +

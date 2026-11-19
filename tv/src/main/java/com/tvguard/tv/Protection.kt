@@ -102,7 +102,10 @@ object Protection {
                 "cameBack" to g.optString("cameBack"),
             )
         }
+        val crash = AppLog.lastCrash(context)?.takeIf { it.first > weekAgo }
         return mapOf(
+            "lastCrashAt" to (crash?.first ?: 0L),
+            "lastCrash" to (crash?.second ?: ""),
             "forceStopBlocked" to forceStopBlocked(context),
             "lifeline" to NowPlaying.connected,
             "titleAccess" to NowPlaying.hasAccess(context),
@@ -136,7 +139,11 @@ object Protection {
             else -> "Closed (reason unknown)"
         }
         val detail = info.description?.takeIf { it.isNotBlank() }?.let { " [$it]" }.orEmpty()
-        return "$text at ${clock(info.timestamp)}$detail"
+        // For a crash, add where it happened, saved by the crash handler just before.
+        val crash = AppLog.lastCrash(context)
+            ?.takeIf { (at, _) -> info.reason == ApplicationExitInfo.REASON_CRASH && at >= info.timestamp - 60_000 }
+            ?.let { (_, where) -> " in $where" }.orEmpty()
+        return "$text at ${clock(info.timestamp)}$detail$crash"
     }
 
     private fun clock(millis: Long): String =
