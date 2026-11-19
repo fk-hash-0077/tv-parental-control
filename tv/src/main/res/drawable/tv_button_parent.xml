@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Purple button for parent mode. A thick white ring shows which button the remote is on. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape>
+            <solid android:color="#8B5CF6" />
+            <stroke android:width="4dp" android:color="#FFFFFF" />
+            <corners android:radius="40dp" />
+        </shape>
+    </item>
+    <item>
+        <shape>
+            <solid android:color="#6D28D9" />
+            <corners android:radius="40dp" />
+        </shape>
+    </item>
+</selector>

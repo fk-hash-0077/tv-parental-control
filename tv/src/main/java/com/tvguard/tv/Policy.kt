@@ -20,12 +20,33 @@ class Policy(private val context: Context) {
     fun harden() {
         if (!isDeviceOwner) return
         dpm.setUninstallBlocked(admin, context.packageName, true)
+        blockForceStop()
         lockClock()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             dpm.setPermissionGrantState(
                 admin, context.packageName, Manifest.permission.POST_NOTIFICATIONS,
                 DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
             )
+        }
+    }
+
+    /** True if Android won't let anyone force-stop TV Guard or clear its data (Android 11+). */
+    val forceStopBlocked: Boolean
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && isDeviceOwner && runCatching {
+            context.packageName in dpm.getUserControlDisabledPackages(admin)
+        }.getOrDefault(false)
+
+    /**
+     * Stops the user, Settings and (where the TV respects it) the TV's own cleaner from
+     * force-stopping TV Guard. A force-stopped app gets no start signals until opened by hand.
+     */
+    private fun blockForceStop() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || forceStopBlocked) return
+        try {
+            dpm.setUserControlDisabledPackages(admin, listOf(context.packageName))
+            AppLog.i(TAG, "TV Guard can no longer be force-stopped")
+        } catch (e: Exception) {
+            AppLog.w(TAG, "Couldn't block force-stop", e)
         }
     }
 
@@ -97,6 +118,9 @@ class Policy(private val context: Context) {
         setInstallsAllowed(true)
         dpm.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_DATE_TIME)
         dpm.setLockTaskPackages(admin, emptyArray())
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching { dpm.setUserControlDisabledPackages(admin, emptyList()) }
+        }
         dpm.setUninstallBlocked(admin, context.packageName, false)
         @Suppress("DEPRECATION")
         dpm.clearDeviceOwnerApp(context.packageName)

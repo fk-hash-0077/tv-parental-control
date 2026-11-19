@@ -106,6 +106,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         deviceRef.child("tvUid").setValue(uid).addOnCompleteListener { task ->
             if (!task.isSuccessful) AppLog.w(TAG, "Couldn't claim tvUid", task.exception)
             ref = deviceRef
+            flushEvents(deviceRef)
             deviceRef.child("secret").setValue(Base64.encodeToString(store.unlockSecret, Base64.NO_WRAP))
             listen(deviceRef.child("config")) { snapshot ->
                 val map = snapshot.value as? Map<*, *>
@@ -311,19 +312,39 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
         return true
     }
 
-    /** unlock, emergency or failed. Queued by Firebase if the TV is offline right now. */
-    fun sendEvent(type: String) {
-        val deviceRef = ref ?: return
-        deviceRef.child("events").push().setValue(
-            mapOf("type" to type, "at" to ServerValue.TIMESTAMP, "device" to Build.MODEL)
-        )
+    /**
+     * unlock, emergency, failed, parentOn, parentOff or gap, turned into a notification on the
+     * phones. [extra] adds details such as when parent mode ends. Queued by Firebase if the TV
+     * is offline right now.
+     */
+    fun sendEvent(type: String, extra: Map<String, Any> = emptyMap()) {
+        val event = extra + mapOf("type" to type, "at" to ServerValue.TIMESTAMP, "device" to Build.MODEL)
+        val deviceRef = ref
+        if (deviceRef == null) {
+            // Not connected yet, e.g. right after starting: sent once the connection is up.
+            synchronized(queuedEvents) { queuedEvents += event }
+            return
+        }
+        deviceRef.child("events").push().setValue(event)
+    }
+
+    private val queuedEvents = mutableListOf<Map<String, Any>>()
+
+    private fun flushEvents(deviceRef: DatabaseReference) {
+        val events = synchronized(queuedEvents) { queuedEvents.toList().also { queuedEvents.clear() } }
+        events.forEach { deviceRef.child("events").push().setValue(it) }
+    }
+
+    /** Parent mode started on the TV lock screen, so the phones see it and can end it. */
+    fun startParentMode(from: Long, until: Long) {
+        ref?.child("config")?.updateChildren(mapOf("parentFrom" to from, "parentUntil" to until))
     }
 
     /** Connection details for the phone's Diagnostics screen. Sent with every check. */
-    fun pushDiag(serviceStartedAt: Long, startedBy: String) {
+    fun pushDiag(serviceStartedAt: Long, startedBy: String, protection: Map<String, Any>) {
         val deviceRef = ref ?: return
         deviceRef.child("diag").setValue(
-            mapOf(
+            protection + mapOf(
                 "connected" to connected,
                 "confirmedAt" to store.syncSavedAt,
                 "syncError" to store.syncError,

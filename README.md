@@ -5,16 +5,19 @@ Parental controls for a Google TV / Android TV, run from a phone.
 - **TV app** (`tv/`) runs in the background as Device Owner.
   - YouTube, YouTube Kids and Roblox are blocked by default. The phone can unblock them for
     the day; they block again at midnight.
-  - One daily limit for **all** TV time (separate for weekdays and weekends). Every app on
-    screen counts, including Live TV and HDMI inputs; the home screen, screensaver, Settings and
-    TV Guard don't. When the limit is used up, outside the allowed hours, and at bedtime, the whole
-    TV shows a lock screen (with a countdown when the unlock time is known), and so does the
-    phone's **Lock now** button. A small card in the corner warns 5 minutes before any lock.
+  - Two simple rules, each with school-day and weekend values:
+    **TV hours** (when the TV can be on; the end is bedtime) and **daily TV time** (how much,
+    for **all** TV time). Every app on screen counts, including Live TV and HDMI inputs; the
+    home screen, screensaver, Settings and TV Guard don't. Outside TV hours the TV shows
+    "TV is resting" with a countdown; when the daily time is used up it shows "TV time is used
+    up"; the phone's **Lock now** locks it too. A small card in the corner warns 5 minutes before any lock.
+  - **Parent mode**, from the phone or the TV lock screen: nothing is locked or blocked and the
+    time isn't counted. It ends by itself, by 6 AM at the latest.
   - On the lock screen, a parent can type a **one-time arrow code** from the phone app (or a
-    single-use emergency code) on the remote to unlock for 30 minutes, and kids can press
-    **Ask for more time**.
+    single-use emergency code) on the remote, then choose **Unlock 30 min** (for the kids,
+    counts as TV time) or **Parent mode 2 h**. Kids can press **Ask for more time**.
   - A parent can pick a **lock screen photo** on the phone for when the weekday limit is used up,
-    and another for bedtime. Each shows in a round frame on that lock screen. The photo passes through Firebase only until the TV saves it in its
+    and another for outside TV hours. Each shows in a round frame on that lock screen. The photo passes through Firebase only until the TV saves it in its
     private storage, then the TV deletes it from Firebase. It is never part of this repository.
   - The phone's **Now playing** card shows which app is on the TV and, for apps that share it
     (YouTube, Netflix and most video and music apps), the title. Live TV, HDMI inputs and games
@@ -23,7 +26,8 @@ Parental controls for a Google TV / Android TV, run from a phone.
   - It updates itself from GitHub releases when the phone's **Update TV** button is tapped.
 - **Phone app** (`phone/`) opens only after the phone's fingerprint or screen lock. It shows
   whether the TV is connected, has **Sync now**, today's TV time per app, a 7-day chart, bonus
-  time, limits, allowed hours, bedtime, app and install controls, and a weekly report.
+  time, parent mode, TV hours and daily TV time, app and install controls, a Protection card
+  (any time TV Guard wasn't running, and why), and a weekly report.
   A second parent's phone can pair only once an already-paired phone approves it.
 - The two talk through Firebase Realtime Database, so the phone works away from home Wi-Fi.
   Instant notifications (limit reached, TV offline, ask for more time, unlocks, new phone,
@@ -41,13 +45,14 @@ app can't manage apps inside another profile.
 | Lock screen | A full-screen activity pinned with lock task mode, so Home and Back can't leave it. |
 | TV time | `UsageStatsManager` foreground events for all apps per local day, minus the home screen, screensaver, Settings and TV Guard. Overlaps count once. |
 | Unlock codes | Like an authenticator app: an HMAC of the current 2-minute window with a secret the TV shares with approved phones, shown as 6 arrows. Each code works once, offline too. |
-| Background | A foreground service re-checks every 30 seconds and on every change from the phone, and restarts after reboot. |
+| Background | A foreground service re-checks every 30 seconds and on every change from the phone. It can't be force-stopped (Device Owner), and comes back after power-on, after updates, from a 5-minute alarm, a 15-minute job, and the Now playing title access ("lifeline"), which Android reconnects by itself. |
 | Sync | The phone writes `devices/{code}/config`; the TV writes `status`, `apps`, `usage` and `history`. The TV reconnects when it wakes, when Wi-Fi returns and when a listener is cancelled, and a watchdog checks every minute. |
 | Alerts | `functions/` turns TV events into push notifications (Firebase Cloud Messaging). |
 | Updates | Every push to `main` publishes a GitHub release `v<run number>` with both APKs. |
 
-Rules are checked in this order: bedtime, outside allowed hours, daily limit. Weekends are
-Saturday and Sunday. Bonus time only counts on the day it was given.
+Parent mode wins over everything. Then: outside TV hours, daily TV time used up, Lock now.
+Weekends are Saturday and Sunday. Bonus time only counts on the day it was given. Older setups
+with a separate bedtime are moved into TV hours the first time the new phone app opens.
 
 ## 1. Firebase setup (one time, free)
 
@@ -147,6 +152,13 @@ adb shell appops set com.tvguard.tv APP_ASSOC_START allow
 
 Diagnostics on the phone shows "Started by" for the TV, which should say "TV turned on"
 after the TV restarts, or "update installed" after Update TV.
+
+TCL's own cleaner can also force-stop TV Guard, after which Android sends it no start signals
+until someone opens it. TV Guard now blocks force-stops as Device Owner and restarts itself
+from the Now playing title access, so turning title access on (below) also matters for this.
+The **Protection** card on the phone's Diagnostics tab lists any time in the last 7 days that
+TV Guard wasn't running while the TV was used, with Android's reason (for example
+"Force-stopped"), and the phones get a notification after each one.
 
 ## Turning on titles for Now playing
 

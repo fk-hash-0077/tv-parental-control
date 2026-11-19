@@ -54,6 +54,8 @@ class PushService : FirebaseMessagingService() {
                 "limit" -> 2
                 "offline" -> 3
                 "weekly" -> 4
+                "parent" -> 5
+                "gap" -> 6
                 else -> 2000 + (System.currentTimeMillis() % 1000).toInt()
             }
             val open = PendingIntent.getActivity(

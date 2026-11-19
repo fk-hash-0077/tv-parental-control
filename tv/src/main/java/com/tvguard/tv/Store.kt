@@ -52,6 +52,13 @@ data class GuardConfig(
     val releaseOwner: Boolean = false,
     /** The phone's "Lock now": the whole TV stays locked until the phone turns it off. */
     val lockNow: Boolean = false,
+    /**
+     * Parent mode: from [parentFrom] until [parentUntil] nothing is locked or blocked and TV time
+     * isn't counted. Set from a phone or the TV lock screen; "End now" sets [parentUntil] to now.
+     * It never lasts past 6 AM (see Rules.parentCutoff).
+     */
+    val parentFrom: Long = 0,
+    val parentUntil: Long = 0,
 ) {
     fun toMap(): Map<String, Any> = mapOf(
         "unblockedDate" to unblockedDate,
@@ -77,6 +84,8 @@ data class GuardConfig(
         "emergencySetAt" to emergencySetAt,
         "releaseOwner" to releaseOwner,
         "lockNow" to lockNow,
+        "parentFrom" to parentFrom,
+        "parentUntil" to parentUntil,
     )
 
     companion object {
@@ -122,6 +131,8 @@ data class GuardConfig(
                 emergencySetAt = long("emergencySetAt", 0),
                 releaseOwner = bool("releaseOwner", false),
                 lockNow = bool("lockNow", false),
+                parentFrom = long("parentFrom", 0),
+                parentUntil = long("parentUntil", 0),
             )
         }
     }
@@ -133,7 +144,7 @@ data class GuardStatus(
     /** Today's limit including bonus time; 0 means no limit. */
     val limitMinutesToday: Int,
     val limitReached: Boolean,
-    /** Why something is locked right now: bedtime, schedule, limit, blocked (listed apps only), or empty. */
+    /** Why the whole TV is locked right now: hours (outside TV hours), limit, manual, or empty. */
     val reason: String,
     /** True when the whole TV shows the lock screen. */
     val locked: Boolean,
@@ -152,6 +163,10 @@ data class GuardStatus(
     val photoAt: Long = 0,
     /** The same for the bedtime lock screen photo. */
     val bedtimePhotoAt: Long = 0,
+    /** When parent mode ends, while it's on; otherwise 0. */
+    val parentUntil: Long = 0,
+    /** Minutes watched in parent mode today (not part of [usedMinutesToday]). */
+    val parentMinutesToday: Int = 0,
 ) {
     fun toMap(): Map<String, Any> = mapOf(
         "usedMinutesToday" to usedMinutesToday,
@@ -172,6 +187,8 @@ data class GuardStatus(
         "updatedAt" to updatedAt,
         "photoAt" to photoAt,
         "bedtimePhotoAt" to bedtimePhotoAt,
+        "parentUntil" to parentUntil,
+        "parentMinutesToday" to parentMinutesToday,
     )
 }
 
@@ -203,7 +220,7 @@ class Store(context: Context) {
         get() = prefs.getStringSet("suspended", emptySet())!!.toSet()
         set(value) = prefs.edit().putStringSet("suspended", value).apply()
 
-    /** Why the whole TV is locked (bedtime, schedule, limit), or empty. Read by the lock screen. */
+    /** Why the whole TV is locked (hours, limit, manual), or empty. Read by the lock screen. */
     var lockReason: String
         get() = prefs.getString("lock_reason", "") ?: ""
         set(value) = prefs.edit().putString("lock_reason", value).apply()
@@ -301,6 +318,51 @@ class Store(context: Context) {
         get() = prefs.getInt("update_target", 0)
         set(value) = prefs.edit().putInt("update_target", value).apply()
 
+    /**
+     * Every parent mode period of the last week, as (from, to) epoch millis, so that time is left
+     * out of the kids' TV time even after it ended or TV Guard restarted.
+     */
+    var parentPeriods: List<Pair<Long, Long>>
+        get() = runCatching {
+            val a = JSONArray(prefs.getString("parent_periods", "[]"))
+            (0 until a.length()).map { a.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } }
+        }.getOrDefault(emptyList())
+        set(value) = prefs.edit().putString(
+            "parent_periods",
+            JSONArray(value.map { JSONArray(listOf(it.first, it.second)) }).toString(),
+        ).apply()
+
+    /** Adds or updates the parent mode period that started at [from] (the key), and drops old ones. */
+    fun recordParentPeriod(from: Long, to: Long) {
+        val weekAgo = System.currentTimeMillis() - 8 * 86_400_000L
+        val list = parentPeriods.filter { it.first != from && it.second > weekAgo }.toMutableList()
+        if (to > from) list += from to to
+        parentPeriods = list.sortedBy { it.first }
+    }
+
+    /** Which parent mode (by its start) the TV already showed its "Parent mode is on" note for. */
+    var parentNotedFrom: Long
+        get() = prefs.getLong("parent_noted", 0)
+        set(value) = prefs.edit().putLong("parent_noted", value).apply()
+
+    /** The end time the "parent mode ends soon" note was shown for. */
+    var parentEndWarnedFor: Long
+        get() = prefs.getLong("parent_end_warned", 0)
+        set(value) = prefs.edit().putLong("parent_end_warned", value).apply()
+
+    /** When TV Guard last checked the rules; used to find the gaps when it wasn't running. */
+    var lastAliveAt: Long
+        get() = prefs.getLong("alive_at", 0)
+        set(value) = prefs.edit().putLong("alive_at", value).apply()
+
+    /** Times TV Guard wasn't running while the TV was used, newest last, JSON objects. Kept 7 days. */
+    var gaps: List<JSONObject>
+        get() = runCatching {
+            val a = JSONArray(prefs.getString("gaps", "[]"))
+            (0 until a.length()).map { a.getJSONObject(it) }
+        }.getOrDefault(emptyList())
+        set(value) = prefs.edit().putString("gaps", JSONArray(value).toString()).apply()
+
     var lastStatus: GuardStatus?
         get() {
             val json = prefs.getString("status", null) ?: return null
@@ -325,6 +387,8 @@ class Store(context: Context) {
                     updatedAt = o.optLong("updatedAt"),
                     photoAt = o.optLong("photoAt"),
                     bedtimePhotoAt = o.optLong("bedtimePhotoAt"),
+                    parentUntil = o.optLong("parentUntil"),
+                    parentMinutesToday = o.optInt("parentMinutesToday"),
                 )
             }.getOrNull()
         }

@@ -10,6 +10,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const { localParts, weeklyReport } = require("./report");
+const { eventMessages } = require("./messages");
 
 admin.initializeApp();
 
@@ -54,6 +55,9 @@ exports.limitReached = onValueWritten(
   { ref: "/devices/{id}/status/limitReached", ...db },
   async (event) => {
     if (event.data.after.val() !== true || event.data.before.val() === true) return;
+    // In parent mode nothing locks; the kids' rules come back (and lock) when it ends.
+    const parentUntil = (await event.data.after.ref.parent.child("parentUntil").get()).val();
+    if (Number(parentUntil) > Date.now()) return;
     await notify(event.params.id, {
       type: "limit",
       title: "TV time is used up for today",
@@ -69,8 +73,12 @@ exports.moreTimeRequested = onValueWritten(
     const after = event.data.after.val();
     const before = event.data.before.val();
     if (!after || !after.at || (before && before.at === after.at)) return;
-    const why = { bedtime: "during bedtime", schedule: "outside allowed hours" }[after.reason] ||
-      "after today's limit";
+    const why = {
+      hours: "outside TV hours",
+      bedtime: "outside TV hours",
+      schedule: "outside TV hours",
+      manual: "while you've locked it",
+    }[after.reason] || "after today's TV time";
     await notify(event.params.id, {
       type: "request",
       title: "The TV is asking for more time",
@@ -98,12 +106,16 @@ exports.phoneWantsToPair = onValueCreated(
   },
 );
 
-/** Unlocks and failed unlock attempts on the TV lock screen. */
+/**
+ * Things the TV reports as events: unlocks and failed unlock attempts on the lock screen,
+ * parent mode starting and ending, and times TV Guard wasn't running.
+ */
 exports.lockScreenEvent = onValueCreated(
   { ref: "/devices/{id}/events/{eventId}", ...db },
   async (event) => {
     const info = event.data.val() || {};
     const messages = {
+      ...eventMessages(info),
       unlock: ["The TV was unlocked", "Someone used a one-time unlock code. The TV is unlocked for 30 minutes."],
       emergency: [
         "The TV was unlocked with the emergency code",
@@ -112,7 +124,8 @@ exports.lockScreenEvent = onValueCreated(
       failed: ["Wrong unlock code on the TV", "Someone typed a wrong arrow code on the TV lock screen."],
     };
     const [title, body] = messages[info.type] || ["TV Guard", "Something happened on the TV lock screen."];
-    await notify(event.params.id, { type: info.type || "event", title, body });
+    const type = info.type === "parentOn" || info.type === "parentOff" ? "parent" : info.type || "event";
+    await notify(event.params.id, { type, title, body });
     await event.data.ref.remove();
   },
 );

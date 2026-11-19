@@ -10,4 +10,6 @@
     <color name="ok">#1F9D55</color>
     <color name="warn">#D97706</color>
     <color name="bad">#E5484D</color>
+    <!-- Parent mode -->
+    <color name="parent">#7C3AED</color>
 </resources>

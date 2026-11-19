@@ -18,7 +18,13 @@ import java.time.ZoneId
 class UsageTracker(private val context: Context) {
 
     /** [foreground] is the app on screen right now (not the home screen or TV Guard), or null. */
-    data class Usage(val totalMinutes: Int, val minutesByApp: Map<String, Int>, val foreground: String? = null)
+    data class Usage(
+        val totalMinutes: Int,
+        val minutesByApp: Map<String, Int>,
+        val foreground: String? = null,
+        /** Minutes watched in parent mode; not part of [totalMinutes] or [minutesByApp]. */
+        val parentMinutes: Int = 0,
+    )
 
     fun hasAccess(): Boolean {
         val appOps = context.getSystemService(AppOpsManager::class.java)
@@ -51,6 +57,9 @@ class UsageTracker(private val context: Context) {
             .map { it.serviceInfo.packageName }
         return (homes + dreams + ALWAYS_EXCLUDED + context.packageName).toSet()
     }
+
+    /** Kids' TV time between two moments, e.g. while TV Guard wasn't running. */
+    fun watchedBetween(start: Long, end: Long): Int = between(start, end).totalMinutes
 
     private fun between(start: Long, end: Long): Usage {
         if (!hasAccess() || end <= start) return Usage(0, emptyMap())
@@ -106,32 +115,22 @@ class UsageTracker(private val context: Context) {
         val foreground = openCount.filterValues { it > 0 }.keys.maxByOrNull { openSince[it] ?: 0L }
         closeAll(end)
 
-        // Clip to the day, then sum per app and take the union for the total,
-        // so two apps on screen at once (picture in picture) count once.
-        val clipped = intervals.mapNotNull { (pkg, from, to) ->
+        // Clip to the day, leave out parent mode, then sum per app and take the union for the
+        // total, so two apps on screen at once (picture in picture) count once.
+        val all = intervals.mapNotNull { (pkg, from, to) ->
             val a = maxOf(from, start)
             val b = minOf(to, end)
             if (b > a) Triple(pkg, a, b) else null
         }
+        val parent = Store(context).parentPeriods
+        val clipped = Rules.subtract(all, parent)
         val perApp = clipped.groupBy { it.first }
             .mapValues { (_, list) -> (list.sumOf { it.third - it.second } / 60_000).toInt() }
             .filterValues { it > 0 }
 
-        var totalMs = 0L
-        var curStart = -1L
-        var curEnd = -1L
-        for ((_, a, b) in clipped.sortedBy { it.second }) {
-            if (a > curEnd) {
-                if (curEnd > curStart) totalMs += curEnd - curStart
-                curStart = a
-                curEnd = b
-            } else if (b > curEnd) {
-                curEnd = b
-            }
-        }
-        if (curEnd > curStart) totalMs += curEnd - curStart
-
-        return Usage((totalMs / 60_000).toInt(), perApp, foreground)
+        val totalMs = Rules.unionMillis(clipped.map { it.second to it.third })
+        val parentMs = Rules.unionMillis(all.map { it.second to it.third }) - totalMs
+        return Usage((totalMs / 60_000).toInt(), perApp, foreground, (parentMs / 60_000).toInt())
     }
 
     private fun startOfDay(day: LocalDate): Long =

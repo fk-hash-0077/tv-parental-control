@@ -6,14 +6,25 @@ import android.content.Intent
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
-            Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> {
-                AppLog.init(context)
-                AppLog.i("TvGuard", "Starting after ${intent.action?.substringAfterLast('.')}")
-                val reason = if (intent.action == Intent.ACTION_BOOT_COMPLETED) "TV turned on" else "app updated"
-                GuardService.start(context, reason)
-            }
+        val reason = when (intent.action) {
+            Intent.ACTION_BOOT_COMPLETED, QUICKBOOT, QUICKBOOT_HTC -> "TV turned on"
+            Intent.ACTION_MY_PACKAGE_REPLACED -> "app updated"
+            // Sent when the clock is synced or the time zone set, which often happens on wake.
+            Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED -> "clock synced"
+            else -> return
         }
+        if (GuardService.current != null) return
+        AppLog.init(context)
+        AppLog.i("TvGuard", "Starting after ${intent.action?.substringAfterLast('.')}")
+        runCatching { GuardService.start(context, reason) }
+            .onFailure { AppLog.w("TvGuard", "Couldn't start after ${intent.action}", it) }
+        Protection.armAlarm(context)
+    }
+
+    companion object {
+        /** "Fast boot" power-on on some TVs and phones instead of BOOT_COMPLETED. */
+        private const val QUICKBOOT = "android.intent.action.QUICKBOOT_POWERON"
+        private const val QUICKBOOT_HTC = "com.htc.intent.action.QUICKBOOT_POWERON"
     }
 }
 
