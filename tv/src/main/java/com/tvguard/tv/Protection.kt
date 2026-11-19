@@ -157,9 +157,9 @@ class AlarmReceiver : BroadcastReceiver() {
         if (GuardService.current == null) {
             AppLog.init(context)
             AppLog.i("TvGuard", "Starting from the 5-minute alarm")
+            runCatching { GuardService.start(context, "5-minute check") }
+                .onFailure { AppLog.w("TvGuard", "5-minute alarm couldn't start the service", it) }
         }
-        runCatching { GuardService.start(context, "5-minute check") }
-            .onFailure { AppLog.w("TvGuard", "5-minute alarm couldn't start the service", it) }
         Protection.armAlarm(context)
     }
 }

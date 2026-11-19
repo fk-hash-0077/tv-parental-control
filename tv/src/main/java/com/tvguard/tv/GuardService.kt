@@ -185,6 +185,11 @@ class GuardService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Every start goes through startForegroundService (keep-alive job, 5-minute alarm,
+        // lifeline, boot), and Android needs startForeground after *each* of them, not just the
+        // first. This TV's Android crashed TV Guard 5 seconds after a repeat start without it
+        // ("did not then call Service.startForeground"), so call it every time, first thing.
+        startInForeground()
         if (startedBy.isEmpty()) {
             // What brought TV Guard up, so the logs show whether the TV let it start by itself.
             startedBy = intent?.getStringExtra(EXTRA_REASON) ?: "restarted by Android"

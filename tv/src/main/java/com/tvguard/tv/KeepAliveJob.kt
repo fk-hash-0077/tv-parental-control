@@ -14,10 +14,10 @@ import android.content.Context
  */
 class KeepAliveJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
-        if (GuardService.current == null) {
-            AppLog.init(this)
-            AppLog.i("TvGuard", "Starting from keep-alive job ${params.jobId}")
-        }
+        // Already running: nothing to do. Starting it again only adds risk on this TV.
+        if (GuardService.current != null) return false
+        AppLog.init(this)
+        AppLog.i("TvGuard", "Starting from keep-alive job ${params.jobId}")
         runCatching { GuardService.start(this, "keep-alive check") }
             .onFailure { AppLog.w("TvGuard", "Keep-alive couldn't start the service", it) }
         return false
