@@ -87,7 +87,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var weekdayLimit: EditText
     private lateinit var weekendLimit: EditText
     private lateinit var scheduleSwitch: SwitchCompat
-    private lateinit var bedtimeSwitch: SwitchCompat
+    private lateinit var tvTimeSummary: TextView
+    private lateinit var parentCard: View
+    private lateinit var parentTitle: TextView
+    private lateinit var parentDetail: TextView
+    private lateinit var parentOnButton: Button
+    private lateinit var parentMore: Button
+    private lateinit var parentEnd: Button
+    private lateinit var protectionLabel: TextView
+    /** Set once this phone has moved an old bedtime into TV hours, so it's done only once. */
+    private var migratedBedtime = false
     private lateinit var installsSwitch: SwitchCompat
     private lateinit var appsLabel: TextView
     private lateinit var usageList: LinearLayout
@@ -176,7 +185,14 @@ class MainActivity : AppCompatActivity() {
         weekdayLimit = findViewById(R.id.weekdayLimit)
         weekendLimit = findViewById(R.id.weekendLimit)
         scheduleSwitch = findViewById(R.id.scheduleSwitch)
-        bedtimeSwitch = findViewById(R.id.bedtimeSwitch)
+        tvTimeSummary = findViewById(R.id.tvTimeSummary)
+        parentCard = findViewById(R.id.parentCard)
+        parentTitle = findViewById(R.id.parentTitle)
+        parentDetail = findViewById(R.id.parentDetail)
+        parentOnButton = findViewById(R.id.parentOn)
+        parentMore = findViewById(R.id.parentMore)
+        parentEnd = findViewById(R.id.parentEnd)
+        protectionLabel = findViewById(R.id.protectionLabel)
         installsSwitch = findViewById(R.id.installsSwitch)
         appsLabel = findViewById(R.id.appsLabel)
         usageList = findViewById(R.id.usageList)
@@ -207,7 +223,7 @@ class MainActivity : AppCompatActivity() {
         bottomNav = findViewById(R.id.bottomNav)
         tabs = listOf(
             Triple(findViewById<TextView>(R.id.navHome), findViewById<View>(R.id.tabHome), ""),
-            Triple(findViewById<TextView>(R.id.navLimits), findViewById<View>(R.id.tabLimits), "Limits & hours"),
+            Triple(findViewById<TextView>(R.id.navLimits), findViewById<View>(R.id.tabLimits), "TV time"),
             Triple(findViewById<TextView>(R.id.navApps), findViewById<View>(R.id.tabApps), "Apps"),
             Triple(findViewById<TextView>(R.id.navFamily), findViewById<View>(R.id.tabFamily), "Family"),
             Triple(findViewById<TextView>(R.id.navDiag), findViewById<View>(R.id.tabDiag), "Diagnostics"),
@@ -221,8 +237,6 @@ class MainActivity : AppCompatActivity() {
             Triple(findViewById<Button>(R.id.weekdayEnd), "weekdayEnd", 19 * 60),
             Triple(findViewById<Button>(R.id.weekendStart), "weekendStart", 9 * 60),
             Triple(findViewById<Button>(R.id.weekendEnd), "weekendEnd", 20 * 60),
-            Triple(findViewById<Button>(R.id.bedtimeStart), "bedtimeStart", 21 * 60),
-            Triple(findViewById<Button>(R.id.bedtimeEnd), "bedtimeEnd", 7 * 60),
         )
         timeButtons.forEach { (button, key, default) ->
             button.setOnClickListener { pickTime(key, int(key, default)) }
@@ -243,6 +257,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.bonus30).setOnClickListener { addBonus(30) }
         findViewById<View>(R.id.lockNow).setOnClickListener { toggleLockNow() }
         findViewById<View>(R.id.unblockTile).setOnClickListener { toggleUnblock() }
+        parentOnButton.setOnClickListener { chooseParentMode() }
+        parentMore.setOnClickListener { extendParentMode() }
+        parentEnd.setOnClickListener { endParentMode() }
         findViewById<View>(R.id.connection).setOnClickListener { syncNow() }
         bonusClear.setOnClickListener {
             write(mapOf("bonusDate" to "", "bonusMinutes" to 0))
@@ -269,7 +286,7 @@ class MainActivity : AppCompatActivity() {
             findViewById(R.id.photoLabel), findViewById(R.id.photoRemove),
         )
         bedtimePhoto = PhotoSlot(
-            "bedtimePhoto", "bedtimePhotoAt", "during bedtime",
+            "bedtimePhoto", "bedtimePhotoAt", "outside TV hours",
             findViewById(R.id.bedtimePhotoLabel), findViewById(R.id.bedtimePhotoRemove),
         )
         findViewById<Button>(R.id.photoChoose).setOnClickListener { pickPhoto(limitPhoto) }
@@ -285,9 +302,6 @@ class MainActivity : AppCompatActivity() {
         }
         scheduleSwitch.setOnCheckedChangeListener { button, checked ->
             if (button.isPressed) write(mapOf("scheduleEnabled" to checked))
-        }
-        bedtimeSwitch.setOnCheckedChangeListener { button, checked ->
-            if (button.isPressed) write(mapOf("bedtimeEnabled" to checked))
         }
         installsSwitch.setOnCheckedChangeListener { button, checked ->
             if (button.isPressed) write(mapOf("installsAllowed" to checked))
@@ -451,7 +465,11 @@ class MainActivity : AppCompatActivity() {
         show(controlSection)
         val ref = Cloud.device(code)
         deviceRef = ref
-        listen(ref.child("config")) { config = it.value as? Map<*, *> ?: emptyMap<String, Any>(); render() }
+        listen(ref.child("config")) {
+            config = it.value as? Map<*, *> ?: emptyMap<String, Any>()
+            migrateBedtime()
+            render()
+        }
         listen(ref.child("status")) { tvStatus = it; render() }
         listen(ref.child("apps")) { snapshot ->
             apps = snapshot.children.mapNotNull { app ->
@@ -474,7 +492,7 @@ class MainActivity : AppCompatActivity() {
         listen(ref.child("requestAnswer")) { requestAnswer = it; render() }
         listen(ref.child("pending")) { renderPending(it) }
         listen(ref.child("parents")) { renderPhones(it) }
-        listen(ref.child("diag")) { diag = it }
+        listen(ref.child("diag")) { diag = it; renderProtection() }
         listen(ref.child("logs")) { logs = it }
         Cloud.registerToken(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -524,7 +542,7 @@ class MainActivity : AppCompatActivity() {
         if (deviceRef == null) return
         allowSwitch.isChecked = config["unblockedDate"] == LocalDate.now().toString()
         scheduleSwitch.isChecked = bool("scheduleEnabled")
-        bedtimeSwitch.isChecked = bool("bedtimeEnabled")
+        tvTimeSummary.text = tvTimeSummaryText()
         installsSwitch.isChecked = bool("installsAllowed")
         if (!weekdayLimit.hasFocus()) weekdayLimit.setText(int("dailyLimitMinutes", 120).toString())
         if (!weekendLimit.hasFocus()) weekendLimit.setText(int("weekendLimitMinutes", 180).toString())
@@ -553,6 +571,7 @@ class MainActivity : AppCompatActivity() {
         renderConnection()
         renderRequest()
         renderHome()
+        renderParentMode()
         usage?.let { renderUsage(it) }
         val warnings = warningLines()
         status.text = warnings.joinToString("\n")
@@ -630,9 +649,9 @@ class MainActivity : AppCompatActivity() {
         requestSection.visibility = if (open) View.VISIBLE else View.GONE
         if (open) {
             val why = when (request?.child("reason")?.getValue(String::class.java)) {
-                "bedtime" -> "during bedtime"
-                "schedule" -> "outside allowed hours"
-                else -> "after today's limit"
+                "hours", "bedtime", "schedule" -> "outside TV hours"
+                "manual" -> "while you've locked it"
+                else -> "after today's TV time"
             }
             requestLabel.text = "The TV is asking for more time $why (${formatWhen(askedAt)})"
         }
@@ -652,7 +671,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderUsage(snapshot: DataSnapshot) {
         usageList.removeAllViews()
-        val rows = todaysApps(snapshot)
+        val parentMinutes = (tvStatus?.child("parentMinutesToday")?.value as? Number)?.toInt() ?: 0
+        val rows = todaysApps(snapshot) +
+            if (parentMinutes > 0) listOf(Triple(PARENT_ROW, null as String?, parentMinutes)) else emptyList()
         if (rows.isEmpty()) {
             usageList.addView(TextView(this).apply {
                 text = "Nothing watched yet today"
@@ -679,7 +700,7 @@ class MainActivity : AppCompatActivity() {
             name.addView(TextView(this).apply {
                 text = label
                 textSize = 15f
-                setTextColor(color(R.color.text))
+                setTextColor(if (label == PARENT_ROW) color(R.color.parent) else color(R.color.text))
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
             })
@@ -720,10 +741,15 @@ class MainActivity : AppCompatActivity() {
             limit > 0 && (left <= 15 || fraction >= 0.7f) -> color(R.color.warn)
             else -> color(R.color.ok)
         }
-        ring.set(if (limit > 0) fraction else 0f, tone)
+        val parent = parentActiveUntil() > 0
+        ring.set(if (limit > 0) fraction else 0f, if (parent) color(R.color.parent) else tone)
         ringValue.text = formatShort(used)
         ringLabel.text = if (limit > 0) "of ${formatShort(limit)} today" else "today, no limit"
-        leftLabel.text = if (limit > 0) "Left today" else "Daily limit"
+        leftLabel.text = when {
+            parent -> "Kids' time left (paused)"
+            limit > 0 -> "Left today"
+            else -> "Daily limit"
+        }
         leftValue.text = if (limit > 0) formatMinutes(left) else "Off"
         leftValue.setTextColor(if (limit > 0) tone else color(R.color.muted))
         val top = todaysApps().firstOrNull()
@@ -737,9 +763,8 @@ class MainActivity : AppCompatActivity() {
         if (s != null && s.exists()) {
             pills.addView(
                 when (reason) {
-                    "bedtime" -> pill("🌙 Bedtime lock", color(R.color.bad))
-                    "schedule" -> pill("🔒 Outside allowed hours", color(R.color.bad))
-                    "limit" -> pill("🔒 Time's up", color(R.color.bad))
+                    "hours", "bedtime", "schedule" -> pill("🌙 Outside TV hours", color(R.color.bad))
+                    "limit" -> pill("🔒 TV time used up", color(R.color.bad))
                     "manual" -> pill("🔒 Locked by you", color(R.color.bad))
                     else -> pill("🔓 Unlocked", color(R.color.ok))
                 }
@@ -749,8 +774,11 @@ class MainActivity : AppCompatActivity() {
                 pills.addView(pill("Unlocked until ${formatWhen(overrideUntil)}", color(R.color.warn)))
             }
         }
-        if (bool("bedtimeEnabled") && reason != "bedtime") {
-            pills.addView(pill("Bedtime ${formatTime(int("bedtimeStart", 21 * 60))}", color(R.color.warn)))
+        if (parentActiveUntil() > 0) {
+            pills.addView(pill("👤 Parent mode", color(R.color.parent)))
+        } else if (bool("scheduleEnabled") && reason.isEmpty()) {
+            val (_, end) = hoursToday()
+            pills.addView(pill("TV hours end ${formatTime(end)}", color(R.color.warn)))
         }
 
         // Quick action tiles
@@ -1178,6 +1206,165 @@ class MainActivity : AppCompatActivity() {
         show(pairSection)
     }
 
+    // ---- TV time ----
+
+    /** Today's TV hours (start, end) as minutes of the day. */
+    private fun hoursToday(): Pair<Int, Int> {
+        val weekend = LocalDate.now().dayOfWeek.value >= 6
+        return if (weekend) int("weekendStart", 9 * 60) to int("weekendEnd", 20 * 60)
+        else int("weekdayStart", 15 * 60) to int("weekdayEnd", 19 * 60)
+    }
+
+    /** "Today: TV can be on 3:00 PM to 8:30 PM, for up to 2 h. It locks at 8:30 PM, or sooner…" */
+    private fun tvTimeSummaryText(): String {
+        val weekend = LocalDate.now().dayOfWeek.value >= 6
+        val limit = if (weekend) int("weekendLimitMinutes", 180) else int("dailyLimitMinutes", 120)
+        val hoursOn = bool("scheduleEnabled")
+        val (start, end) = hoursToday()
+        val amount = if (limit > 0) formatMinutes(limit) else ""
+        return "📺 Today: " + when {
+            hoursOn && limit > 0 ->
+                "TV can be on ${formatTime(start)} to ${formatTime(end)}, for up to $amount.\n" +
+                    "It locks at ${formatTime(end)}, or sooner if the $amount run out."
+            hoursOn -> "TV can be on ${formatTime(start)} to ${formatTime(end)}, with no daily limit."
+            limit > 0 -> "TV can be on any time, for up to $amount."
+            else -> "No TV hours and no daily limit. The TV never locks by itself."
+        }
+    }
+
+    /**
+     * TV hours used to come with a separate bedtime. Now the end of TV hours is bedtime, so an
+     * old bedtime is moved into TV hours once: they become the part of the old allowed hours
+     * that is outside bedtime.
+     */
+    private fun migrateBedtime() {
+        if (migratedBedtime || !bool("bedtimeEnabled")) return
+        migratedBedtime = true
+        val bedStart = int("bedtimeStart", 21 * 60)
+        val bedEnd = int("bedtimeEnd", 7 * 60)
+        val scheduleOn = bool("scheduleEnabled")
+        fun merge(start: Int, end: Int): Pair<Int, Int> {
+            if (!scheduleOn) return bedEnd to bedStart
+            // Usual case: bedtime crosses midnight and both windows sit inside one day.
+            if (bedEnd < bedStart && start < end) {
+                val s = maxOf(start, bedEnd)
+                val e = minOf(end, bedStart)
+                if (s < e) return s to e
+            }
+            return start to end
+        }
+        val (wdStart, wdEnd) = merge(int("weekdayStart", 15 * 60), int("weekdayEnd", 19 * 60))
+        val (weStart, weEnd) = merge(int("weekendStart", 9 * 60), int("weekendEnd", 20 * 60))
+        write(
+            mapOf(
+                "scheduleEnabled" to true,
+                "weekdayStart" to wdStart, "weekdayEnd" to wdEnd,
+                "weekendStart" to weStart, "weekendEnd" to weEnd,
+                "bedtimeEnabled" to false,
+            )
+        )
+        AlertDialog.Builder(this)
+            .setTitle("Bedtime is now part of TV hours")
+            .setMessage(
+                "TV hours are now:\nSchool days ${formatTime(wdStart)} to ${formatTime(wdEnd)}\n" +
+                    "Weekend ${formatTime(weStart)} to ${formatTime(weEnd)}\n\n" +
+                    "The end of TV hours is bedtime. You can change them on the TV time tab."
+            )
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    // ---- Parent mode ----
+
+    /** When parent mode ends, if it's on now; otherwise 0. */
+    private fun parentActiveUntil(): Long {
+        val from = long("parentFrom")
+        val until = minOf(long("parentUntil"), parentCutoff(from))
+        return if (from > 0 && System.currentTimeMillis() in from until until) until else 0L
+    }
+
+    /** The first 6:00 AM at least an hour after [from]. Same rule as on the TV. */
+    private fun parentCutoff(from: Long): Long {
+        val start = java.time.Instant.ofEpochMilli(from).atZone(java.time.ZoneId.systemDefault()).plusHours(1)
+        var cutoff = start.with(LocalTime.of(PARENT_CUTOFF_HOUR, 0))
+        if (!cutoff.isAfter(start)) cutoff = cutoff.plusDays(1)
+        return cutoff.toInstant().toEpochMilli()
+    }
+
+    private fun renderParentMode() {
+        val until = parentActiveUntil()
+        val on = until > 0
+        parentCard.background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(20).toFloat()
+            setColor(if (on) color(R.color.parent) else color(R.color.card))
+        }
+        parentTitle.setTextColor(if (on) 0xFFFFFFFF.toInt() else color(R.color.text))
+        parentDetail.setTextColor(if (on) 0xE6FFFFFF.toInt() else color(R.color.muted))
+        parentTitle.text = if (on) "👤 Parent mode on · ends ${formatWhen(until)}" else "👤 Parent mode"
+        parentDetail.text = if (on) {
+            "No limits or blocked apps on the TV. This time isn't counted."
+        } else {
+            "No limits, no blocked apps. Your watching won't count. It always ends by 6:00 AM."
+        }
+        parentOnButton.visibility = if (on) View.GONE else View.VISIBLE
+        parentMore.visibility = if (on) View.VISIBLE else View.GONE
+        parentEnd.visibility = if (on) View.VISIBLE else View.GONE
+    }
+
+    private fun chooseParentMode() {
+        val now = System.currentTimeMillis()
+        val cutoff = parentCutoff(now)
+        val options = listOf(1, 2, 3).map { h ->
+            val until = minOf(now + h * HOUR_MS, cutoff)
+            "$h hour${if (h > 1) "s" else ""}, until ${formatWhen(until)}" to h * HOUR_MS
+        } + listOf("Until I turn it off (ends by ${formatWhen(cutoff)})" to Long.MAX_VALUE / 2)
+        val labels = options.map { it.first }
+        var picked = 1
+        AlertDialog.Builder(this)
+            .setTitle("Turn on parent mode")
+            .setSingleChoiceItems(labels.toTypedArray(), picked) { _, which -> picked = which }
+            .setPositiveButton("Turn on") { _, _ ->
+                val start = System.currentTimeMillis()
+                val until = minOf(start + options[picked].second, parentCutoff(start))
+                write(mapOf("parentFrom" to start, "parentUntil" to until))
+                toast("Parent mode on until ${formatWhen(until)}. The TV unlocks in a moment.")
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun extendParentMode() {
+        val until = parentActiveUntil()
+        if (until == 0L) return
+        val cutoff = parentCutoff(long("parentFrom"))
+        val newUntil = minOf(until + HOUR_MS, cutoff)
+        if (newUntil <= until) {
+            toast("Parent mode can't go past ${formatWhen(cutoff)}.")
+            return
+        }
+        write(mapOf("parentUntil" to newUntil))
+        toast("Parent mode on until ${formatWhen(newUntil)}")
+    }
+
+    private fun endParentMode() {
+        AlertDialog.Builder(this)
+            .setMessage("End parent mode now? The kids' rules come back. If their TV time is used up, the TV locks.")
+            .setPositiveButton("End now") { _, _ ->
+                write(mapOf("parentUntil" to System.currentTimeMillis()))
+                toast("Parent mode ended")
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // ---- Protection (Diagnostics tab) ----
+
+    private fun renderProtection() {
+        protectionLabel.text = Diagnostics.protectionText(diag) {
+            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))
+        }
+    }
+
     // ---- Helpers ----
 
     private fun showNotice(text: String) {
@@ -1211,6 +1398,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val PARENT_ROW = "👤 Parent time"
+        private const val HOUR_MS = 60 * 60_000L
+        /** Parent mode never lasts past 6:00 AM; must match Rules.parentCutoff on the TV. */
+        private const val PARENT_CUTOFF_HOUR = 6
+
         private val DEFAULT_PACKAGES = listOf(
             "com.google.android.youtube.tv",
             "com.google.android.youtube",

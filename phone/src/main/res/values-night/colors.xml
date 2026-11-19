@@ -10,4 +10,5 @@
     <color name="ok">#34C77B</color>
     <color name="warn">#F5A524</color>
     <color name="bad">#FF6B6F</color>
+    <color name="parent">#8B5CF6</color>
 </resources>

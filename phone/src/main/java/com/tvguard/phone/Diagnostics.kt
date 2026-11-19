@@ -108,6 +108,9 @@ class Diagnostics(
             lines += "Lock: ${str(d, "lockReason").ifEmpty { "unlocked" }}"
         }
         lines += "Last Sync now answered: ${whenAgo(long(s, "pongAt"))}"
+        lines += ""
+        lines += "PROTECTION"
+        lines += protectionText(d) { time(it) }
         str(s, "update").takeIf { it.isNotEmpty() }?.let { lines += "Update: $it" }
         lines += ""
         lines += "LOGS"
@@ -122,6 +125,43 @@ class Diagnostics(
             else -> "Tap Send logs to fetch the TV's log for the last 24 hours."
         }
         return lines.joinToString("\n")
+    }
+
+    companion object {
+        /**
+         * What keeps TV Guard running on the TV, and every time in the last 7 days it wasn't
+         * running while the TV was being watched, with Android's reason. [fmt] formats a time.
+         */
+        fun protectionText(d: DataSnapshot?, fmt: (Long) -> String): String {
+            if (d == null || !d.exists() || !d.hasChild("forceStopBlocked")) {
+                return "Shows here once the TV has the newest TV Guard."
+            }
+            fun yes(key: String) = d.child(key).getValue(Boolean::class.java) == true
+            val lines = mutableListOf<String>()
+            val gaps = d.child("gaps").children.toList()
+            if (gaps.isEmpty()) {
+                lines += "✓ No gaps. TV Guard ran whenever the TV was used."
+            } else {
+                val total = gaps.sumOf { (it.child("minutes").value as? Number)?.toInt() ?: 0 }
+                lines += "⚠ ${gaps.size} gap${if (gaps.size > 1) "s" else ""}: TV Guard wasn't running for $total min in total."
+                for (g in gaps.reversed()) {
+                    val from = (g.child("from").value as? Number)?.toLong() ?: 0L
+                    val minutes = (g.child("minutes").value as? Number)?.toInt() ?: 0
+                    val watched = (g.child("watched").value as? Number)?.toInt() ?: 0
+                    val why = g.child("why").getValue(String::class.java).orEmpty()
+                    val back = g.child("cameBack").getValue(String::class.java).orEmpty()
+                    lines += ""
+                    lines += "${fmt(from)}, $minutes min ($watched min watched)"
+                    if (why.isNotEmpty()) lines += "  Why: $why"
+                    if (back.isNotEmpty()) lines += "  Came back: $back"
+                }
+            }
+            lines += ""
+            lines += "${if (yes("forceStopBlocked")) "✓" else "✗"} Can't be force-stopped"
+            lines += "${if (yes("lifeline")) "✓" else "✗"} Lifeline connected" +
+                if (!yes("titleAccess")) " (turn on title access over adb, see README)" else ""
+            return lines.joinToString("\n")
+        }
     }
 
     private fun time(millis: Long) = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(millis))

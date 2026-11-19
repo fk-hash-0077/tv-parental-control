@@ -27,6 +27,9 @@ object NowPlaying {
     private val controllers = mutableListOf<Pair<MediaController, MediaController.Callback>>()
     @Volatile private var sessions: List<Media> = emptyList()
 
+    /** True while Android has the listener connected: TV Guard's "lifeline" (see Protection). */
+    @Volatile var connected = false
+
     /** Called when a title or play state changes. Set by the service. */
     @Volatile var onChange: (() -> Unit)? = null
 
@@ -115,17 +118,25 @@ object NowPlaying {
 }
 
 /**
- * Only here so Android shares media titles with TV Guard (see [NowPlaying]).
- * Notifications themselves are ignored.
+ * Here so Android shares media titles with TV Guard (see [NowPlaying]), and as a lifeline that
+ * restarts TV Guard (see [Protection]). Notifications themselves are ignored.
  */
 class MediaListener : NotificationListenerService() {
     override fun onListenerConnected() {
         AppLog.init(this)
         AppLog.i("TvGuardNowPlaying", "Title access connected")
+        NowPlaying.connected = true
         NowPlaying.attach(applicationContext)
+        // Android reconnects this by itself after power-on and after TV Guard was stopped,
+        // even when it won't send TV Guard any other start signal. Use it to start the guard.
+        if (GuardService.current == null) {
+            runCatching { GuardService.start(this, "lifeline (title access reconnected)") }
+                .onFailure { AppLog.w("TvGuard", "Lifeline couldn't start the service", it) }
+        }
     }
 
     override fun onListenerDisconnected() {
+        NowPlaying.connected = false
         NowPlaying.detach()
     }
 }

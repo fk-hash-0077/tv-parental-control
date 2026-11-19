@@ -33,6 +33,8 @@ class GuardService : Service() {
     private var lastUsageAt = 0L
     private val startedAt = System.currentTimeMillis()
     private var startedBy = ""
+    /** When the previous run last checked the rules, read before this run's first check. */
+    private var previousAliveAt = 0L
 
     private val tick = object : Runnable {
         override fun run() {
@@ -45,7 +47,9 @@ class GuardService : Service() {
             publishCatalog()
             checkForUpdateRequest()
             checkForLogsRequest()
-            sync.pushDiag(startedAt, startedBy)
+            sync.pushDiag(startedAt, startedBy, Protection.diag(this@GuardService))
+            Store(this@GuardService).lastAliveAt = System.currentTimeMillis()
+            Protection.armAlarm(this@GuardService)
             handler.postDelayed(this, INTERVAL_MS)
         }
     }
@@ -133,6 +137,7 @@ class GuardService : Service() {
         super.onCreate()
         AppLog.init(this)
         AppLog.i(TAG, "Started, version ${BuildConfig.VERSION_CODE}")
+        previousAliveAt = Store(this).lastAliveAt
         startInForeground()
         Updater.reportFinished(this)
         runCatching { KeepAliveJob.schedulePeriodic(this) }
@@ -161,6 +166,9 @@ class GuardService : Service() {
             // What brought TV Guard up, so the logs show whether the TV let it start by itself.
             startedBy = intent?.getStringExtra(EXTRA_REASON) ?: "restarted by Android"
             AppLog.i(TAG, "Started by: $startedBy")
+            val since = previousAliveAt
+            val by = startedBy
+            Thread({ runCatching { Protection.checkGap(this, since, by) } }, "gap-check").start()
         }
         if (::handler.isInitialized) handler.post(tick)
         return START_STICKY

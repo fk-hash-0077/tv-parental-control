@@ -18,21 +18,22 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * Full-screen lock for bedtime, outside allowed hours and when today's limit is used up.
+ * Full-screen lock outside TV hours ("TV is resting"), when today's TV time is used up, and for
+ * the phone's Lock now.
  * Pins itself with lock task mode (allowed because the app is Device Owner), so Home and Back
  * don't leave it, and lets go once [Store.lockReason] is empty.
  *
- * A parent can unlock it for 30 minutes by typing arrows on the remote and pressing OK:
- * either the one-time code shown in the phone app, or the emergency code set from the phone.
- * Nothing on screen changes while the arrows are typed.
+ * A parent types arrows on the remote and presses OK: either the one-time code shown in the
+ * phone app, or the emergency code set from the phone. Nothing on screen changes while the
+ * arrows are typed. A right code then offers "Unlock 30 min" (for the kids, counts as TV time)
+ * or "Parent mode 2 h" (nothing locked or counted, ends by 6 AM).
  *
- * When the weekday limit is used up, or at bedtime, and a parent sent a photo for it from the
- * phone, the photo is shown in a round frame in place of the icon.
+ * When the weekday TV time is used up, or outside TV hours, and a parent sent a photo for it
+ * from the phone, the photo is shown in a round frame in place of the icon.
  */
 class LockActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
@@ -42,6 +43,10 @@ class LockActivity : AppCompatActivity() {
     private lateinit var askButton: Button
     private lateinit var answer: TextView
     private lateinit var photo: ImageView
+    private lateinit var choice: View
+    /** True while the "Unlock 30 min / Parent mode" choice is on screen after a parent's code. */
+    private var choosing = false
+    private var choiceEvent = "unlock"
     /** Which photo is on screen and when it was sent, so it is only redrawn when it changes. */
     private var shownPhoto: Pair<Boolean, Long>? = null
 
@@ -63,7 +68,10 @@ class LockActivity : AppCompatActivity() {
         askButton = findViewById(R.id.ask)
         answer = findViewById(R.id.answer)
         photo = findViewById(R.id.photo)
+        choice = findViewById(R.id.choice)
         askButton.setOnClickListener { askForMoreTime() }
+        findViewById<Button>(R.id.choiceUnlock).setOnClickListener { chooseUnlock() }
+        findViewById<Button>(R.id.choiceParent).setOnClickListener { chooseParentMode() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = Unit
         })
@@ -76,7 +84,7 @@ class LockActivity : AppCompatActivity() {
             return
         }
         render()
-        askButton.requestFocus()
+        if (!choosing) askButton.requestFocus()
         if (Policy(this).isDeviceOwner && !isLocked()) {
             runCatching { startLockTask() }
         }
@@ -95,29 +103,20 @@ class LockActivity : AppCompatActivity() {
         val detail = findViewById<TextView>(R.id.unlockAt)
         val countdown = findViewById<TextView>(R.id.countdown)
         val now = LocalDateTime.now()
-        val minute = now.hour * 60 + now.minute
-        val reason = store.lockReason
-        // Minute of the day when the TV unlocks again, if that's known, for the countdown.
-        var unlocksAt: Int? = null
+        // Older versions wrote bedtime and schedule; both mean outside TV hours now.
+        val reason = when (val r = store.lockReason) {
+            "bedtime", "schedule" -> "hours"
+            else -> r
+        }
+        // When the TV unlocks again, if that's known, for the countdown.
+        var unlocksAt: LocalDateTime? = null
         when (reason) {
-            "bedtime" -> {
+            "hours" -> {
                 icon.text = "🌙"
-                title.text = "Time for bed"
-                detail.text = "The TV wakes up in"
-                unlocksAt = config.bedtimeEnd
-            }
-            "schedule" -> {
-                icon.text = "⏸"
-                title.text = "TV isn't allowed right now"
-                val todayStart = startFor(config, now)
-                if (minute < todayStart) {
-                    detail.text = "TV time starts at ${formatTime(todayStart)}, in"
-                    unlocksAt = todayStart
-                } else {
-                    val tomorrowStart = startFor(config, now.plusDays(1))
-                    detail.text = "Back tomorrow at ${formatTime(tomorrowStart)}, in"
-                    unlocksAt = tomorrowStart
-                }
+                title.text = "TV is resting"
+                val open = Rules.nextOpen(config, now)
+                detail.text = if (open == null) "" else "Back on ${describe(open, now)}, in"
+                unlocksAt = open
             }
             "manual" -> {
                 icon.text = "⏸"
@@ -126,18 +125,14 @@ class LockActivity : AppCompatActivity() {
             }
             else -> {
                 icon.text = "⏰"
-                title.text = "TV time is up for today"
-                detail.text = if (config.scheduleEnabled) {
-                    "Back tomorrow at ${formatTime(startFor(config, now.plusDays(1)))}"
-                } else {
-                    "Back tomorrow"
-                }
+                val limit = store.lastStatus?.limitMinutesToday ?: 0
+                title.text = if (limit > 0) "That's ${formatMinutes(limit)} for today" else "TV time is used up for today"
+                val open = Rules.nextOpenTomorrow(config, now)
+                detail.text = if (open == null) "More TV time tomorrow" else "More TV time ${describe(open, now)}"
             }
         }
         if (unlocksAt != null) {
-            val secondsNow = minute * 60 + now.second
-            var left = unlocksAt * 60 - secondsNow
-            if (left <= 0) left += 24 * 3600
+            val left = java.time.Duration.between(now, unlocksAt).seconds.coerceAtLeast(0)
             countdown.text = "%d:%02d:%02d".format(left / 3600, left / 60 % 60, left % 60)
             countdown.visibility = View.VISIBLE
         } else {
@@ -149,7 +144,7 @@ class LockActivity : AppCompatActivity() {
                 gradientType = GradientDrawable.RADIAL_GRADIENT
                 gradientRadius = resources.displayMetrics.widthPixels * 0.75f
                 setGradientCenter(0.5f, 0f)
-                colors = if (reason == "bedtime") {
+                colors = if (reason == "hours") {
                     intArrayOf(0xFF1D2147.toInt(), 0xFF06070F.toInt())
                 } else {
                     intArrayOf(0xFF23304A.toInt(), 0xFF090D14.toInt())
@@ -158,18 +153,26 @@ class LockActivity : AppCompatActivity() {
         }
         val showPhoto = when (reason) {
             "limit" -> !Rules.isWeekend(now) && showPhoto(bedtime = false)
-            "bedtime" -> showPhoto(bedtime = true)
+            "hours" -> showPhoto(bedtime = true)
             else -> false
         }
         photo.visibility = if (showPhoto) View.VISIBLE else View.GONE
         icon.visibility = if (showPhoto) View.GONE else View.VISIBLE
         val used = store.lastStatus?.usedMinutesToday ?: 0
-        findViewById<TextView>(R.id.watched).text = when {
-            reason == "bedtime" -> "Unlocks at ${formatTime(config.bedtimeEnd)}"
-            used > 0 -> "You watched ${formatMinutes(used)} today"
-            else -> ""
+        findViewById<TextView>(R.id.watched).text = if (used > 0) "You watched ${formatMinutes(used)} today" else ""
+        askButton.visibility = if (choosing) View.GONE else View.VISIBLE
+        answer.text = if (choosing) "Code accepted. What would you like?" else answerText()
+    }
+
+    /** "at 3:00 PM", "tomorrow at 3:00 PM" or "on Saturday at 9:00 AM". */
+    private fun describe(t: LocalDateTime, now: LocalDateTime): String {
+        val time = t.toLocalTime().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+        val days = java.time.temporal.ChronoUnit.DAYS.between(now.toLocalDate(), t.toLocalDate())
+        return when (days) {
+            0L -> "at $time"
+            1L -> "tomorrow at $time"
+            else -> "on ${t.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())} at $time"
         }
-        answer.text = answerText()
     }
 
     private var renderedReason = ""
@@ -201,10 +204,6 @@ class LockActivity : AppCompatActivity() {
         }
         return true
     }
-
-    /** Start of the allowed hours on [day]'s kind of day (weekday or weekend). */
-    private fun startFor(config: GuardConfig, day: LocalDateTime): Int =
-        if (Rules.isWeekend(day)) config.weekendStart else config.weekdayStart
 
     private fun formatMinutes(minutes: Int): String = when {
         minutes < 60 -> "$minutes min"
@@ -250,6 +249,8 @@ class LockActivity : AppCompatActivity() {
         val ok = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
             event.keyCode == KeyEvent.KEYCODE_ENTER ||
             event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+        // While the parent picks, the remote moves between the two buttons as usual.
+        if (choosing) return super.dispatchKeyEvent(event)
         if (arrow < 0 && !ok) return super.dispatchKeyEvent(event)
         // Arrow and OK keys never move focus or click on their own, so typing shows nothing.
         if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount > 0) return true
@@ -278,17 +279,17 @@ class LockActivity : AppCompatActivity() {
         val emergency = store.emergencyCode
         when {
             counter != null -> {
-                AppLog.i("TvGuardLock", "Unlocked with a one-time code")
+                AppLog.i("TvGuardLock", "One-time code accepted")
                 store.lastCodeCounter = counter
-                grantUnlock(now)
-                sync?.sendEvent("unlock")
+                store.failedAttempts = 0
+                offerChoice("unlock")
             }
             emergency.isNotEmpty() && entered == emergency -> {
-                AppLog.i("TvGuardLock", "Unlocked with the emergency code")
+                AppLog.i("TvGuardLock", "Emergency code accepted")
                 store.usedEmergencySetAt = store.config.emergencySetAt
-                grantUnlock(now)
-                sync?.sendEvent("emergency")
+                store.failedAttempts = 0
                 sync?.clearEmergencyCode()
+                offerChoice("emergency")
             }
             else -> {
                 AppLog.i("TvGuardLock", "Wrong unlock code")
@@ -304,6 +305,53 @@ class LockActivity : AppCompatActivity() {
         }
     }
 
+    /** After a parent's code: "Unlock 30 min" for the kids, or parent mode. [event] is unlock or emergency. */
+    private fun offerChoice(event: String) {
+        choosing = true
+        choiceEvent = event
+        choice.visibility = View.VISIBLE
+        findViewById<Button>(R.id.choiceParent).requestFocus()
+        handler.removeCallbacks(cancelChoice)
+        handler.postDelayed(cancelChoice, CHOICE_MS)
+        render()
+    }
+
+    /** Nobody picked within a minute: back to the plain lock screen. The code is used up. */
+    private val cancelChoice = Runnable {
+        choosing = false
+        choice.visibility = View.GONE
+        askButton.requestFocus()
+        render()
+    }
+
+    private fun chooseUnlock() {
+        if (!choosing) return
+        AppLog.i("TvGuardLock", "Unlocked for 30 minutes (${choiceEvent} code)")
+        endChoice()
+        GuardService.current?.sendEvent(choiceEvent)
+        grantUnlock(System.currentTimeMillis())
+    }
+
+    private fun chooseParentMode() {
+        if (!choosing) return
+        endChoice()
+        val now = System.currentTimeMillis()
+        val until = minOf(now + PARENT_MS, Rules.parentCutoff(now, java.time.ZoneId.systemDefault()))
+        AppLog.i("TvGuardLock", "Parent mode started on the TV (${choiceEvent} code)")
+        // Recorded here first, so it works even before the phones hear about it.
+        store.recordParentPeriod(now, until)
+        GuardService.current?.startParentMode(now, until)
+        store.lockReason = ""
+        GuardService.start(this)
+        unlock()
+    }
+
+    private fun endChoice() {
+        choosing = false
+        handler.removeCallbacks(cancelChoice)
+        choice.visibility = View.GONE
+    }
+
     private fun grantUnlock(now: Long) {
         store.failedAttempts = 0
         store.localOverrideUntil = now + UNLOCK_MS
@@ -311,10 +359,6 @@ class LockActivity : AppCompatActivity() {
         GuardService.start(this)
         unlock()
     }
-
-    private fun formatTime(minutes: Int): String =
-        LocalTime.of(0, 0).plusMinutes(minutes.toLong())
-            .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
 
     private fun isLocked(): Boolean =
         getSystemService(ActivityManager::class.java).lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
@@ -338,6 +382,8 @@ class LockActivity : AppCompatActivity() {
         private const val MAX_FAILED = 5
         private const val LOCKOUT_MS = 60_000L
         private const val UNLOCK_MS = 30 * 60_000L
+        private const val PARENT_MS = 2 * 60 * 60_000L
+        private const val CHOICE_MS = 60_000L
         private const val REQUEST_GAP_MS = 10 * 60_000L
         private const val ANSWER_SHOWN_MS = 30 * 60_000L
 

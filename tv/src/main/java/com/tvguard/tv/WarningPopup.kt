@@ -22,20 +22,25 @@ object WarningPopup {
     private var current: View? = null
 
     fun show(context: Context, minutesToLock: Int, locksAt: String) {
-        val app = context.applicationContext
         val title = if (minutesToLock <= 1) "1 minute left" else "$minutesToLock minutes left"
-        val detail = "The TV locks at $locksAt."
+        note(context, "⏰", title, "The TV locks at $locksAt.")
+    }
+
+    /** Any short note in the same corner card, e.g. "Parent mode is on". */
+    fun note(context: Context, icon: String, title: String, detail: String) {
+        val app = context.applicationContext
         Handler(Looper.getMainLooper()).post {
-            if (!Settings.canDrawOverlays(app) || !showCard(app, title, detail)) {
+            if (!Settings.canDrawOverlays(app) || !showCard(app, icon, title, detail)) {
                 Toast.makeText(app, "TV Guard: $title. $detail", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    private fun showCard(context: Context, title: String, detail: String): Boolean = try {
+    private fun showCard(context: Context, icon: String, title: String, detail: String): Boolean = try {
         val wm = context.getSystemService(WindowManager::class.java)
         current?.let { old -> runCatching { wm.removeView(old) } }
         val view = LayoutInflater.from(context).inflate(R.layout.warning_popup, null)
+        view.findViewById<TextView>(R.id.warningIcon).text = icon
         view.findViewById<TextView>(R.id.warningTitle).text = title
         view.findViewById<TextView>(R.id.warningDetail).text = detail
         val density = context.resources.displayMetrics.density

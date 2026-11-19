@@ -106,8 +106,17 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
+
+        <!-- The 5-minute alarm that brings TV Guard back if its checks stopped (see Protection). -->
+        <receiver
+            android:name=".AlarmReceiver"
+            android:exported="false" />
     </application>
 </manifest>

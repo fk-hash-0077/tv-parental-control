@@ -35,9 +35,12 @@ object Enforcer {
         val updating = nowMillis - store.updatingSince in 0 until UPDATE_WINDOW_MS
         policy.setInstallsAllowed(config.installsAllowed || updating)
 
+        val parentUntil = activeParentUntil(store, config, nowMillis)
         val usage = tracker.today()
         val overrideUntil = maxOf(config.overrideUntil, store.localOverrideUntil)
-        val decision = Rules.decide(config, usage.totalMinutes, LocalDateTime.now(), overrideUntil, nowMillis)
+        val decision = Rules.decide(
+            config, usage.totalMinutes, LocalDateTime.now(), overrideUntil, nowMillis, parentUntil,
+        )
 
         val target = if (decision.blockApps) {
             config.packages.filter { policy.isInstalled(it) }.toSet()
@@ -57,8 +60,15 @@ object Enforcer {
         if (lock) {
             policy.allowLockTask()
             LockActivity.show(context)
+        } else if (decision.parentMode) {
+            noteParentMode(context, store, parentUntil, decision)
         } else {
             maybeWarn(context, store, decision.minutesToLock, nowMillis)
+        }
+        if (!decision.parentMode && store.parentNotedFrom != 0L) {
+            store.parentNotedFrom = 0
+            AppLog.i("TvGuardRules", "Parent mode ended")
+            GuardService.current?.sendEvent("parentOff")
         }
 
         val status = status(
@@ -71,9 +81,58 @@ object Enforcer {
             overrideUntil = if (decision.overridden) overrideUntil else 0,
             suspended = target.isNotEmpty() && failed.isEmpty(),
             released = false,
+            parentUntil = if (decision.parentMode) parentUntil else 0,
+            parentMinutes = usage.parentMinutes,
         )
         return Result(status, usage)
     }
+
+    /**
+     * Records parent mode set from a phone (or the TV lock screen) and returns when it ends if
+     * it's on right now, otherwise 0. The recorded periods also keep that time out of the
+     * kids' TV time.
+     */
+    private fun activeParentUntil(store: Store, config: GuardConfig, nowMillis: Long): Long {
+        if (config.parentFrom > 0) {
+            val end = Rules.parentEnd(config.parentFrom, config.parentUntil, ZoneId.systemDefault())
+            val known = store.parentPeriods.firstOrNull { it.first == config.parentFrom }
+            if (known?.second != end) store.recordParentPeriod(config.parentFrom, end)
+        }
+        return store.parentPeriods
+            .filter { (from, to) -> nowMillis in from until to }
+            .maxOfOrNull { it.second } ?: 0L
+    }
+
+    /** "Parent mode is on" once when it starts, and a note 5 minutes before it ends. */
+    private fun noteParentMode(context: Context, store: Store, until: Long, decision: Rules.Decision) {
+        val active = store.parentPeriods.filter { (from, to) -> System.currentTimeMillis() in from until to }
+        val from = active.minOfOrNull { it.first } ?: return
+        val endsAt = formatClock(until)
+        if (store.parentNotedFrom != from) {
+            store.parentNotedFrom = from
+            AppLog.i("TvGuardRules", "Parent mode on until $endsAt")
+            WarningPopup.note(context, "👤", "Parent mode is on", "Until $endsAt. No limits, and this time isn't counted.")
+            GuardService.current?.sendEvent("parentOn", mapOf("until" to endsAt))
+        }
+        val left = decision.parentMinutesLeft ?: return
+        if (left <= WARN_MINUTES && store.parentEndWarnedFor != until) {
+            store.parentEndWarnedFor = until
+            val then = if (decision.minutesToLock != null) {
+                "Then the kids' rules come back and the TV locks."
+            } else {
+                "Then the kids' rules come back."
+            }
+            WarningPopup.note(
+                context, "👤",
+                if (left <= 1) "Parent mode ends in 1 minute" else "Parent mode ends in $left minutes",
+                then,
+            )
+        }
+    }
+
+    private fun formatClock(millis: Long): String =
+        java.time.Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalTime()
+            .format(java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT))
 
     /** Shows "TV locks in N minutes" once, 5 minutes or less before any whole-TV lock. */
     private fun maybeWarn(context: Context, store: Store, minutesToLock: Int?, nowMillis: Long) {
@@ -97,6 +156,8 @@ object Enforcer {
         overrideUntil: Long,
         suspended: Boolean,
         released: Boolean,
+        parentUntil: Long = 0,
+        parentMinutes: Int = 0,
     ): GuardStatus {
         val policy = Policy(context)
         return GuardStatus(
@@ -118,6 +179,8 @@ object Enforcer {
             updatedAt = System.currentTimeMillis(),
             photoAt = if (LockPhoto.exists(context)) store.photoAt else 0,
             bedtimePhotoAt = if (LockPhoto.exists(context, bedtime = true)) store.bedtimePhotoAt else 0,
+            parentUntil = parentUntil,
+            parentMinutesToday = parentMinutes,
         ).also { store.lastStatus = it }
     }
 

@@ -73,8 +73,13 @@ class MainActivity : AppCompatActivity() {
         fill.layoutParams = (fill.layoutParams as LinearLayout.LayoutParams).apply { weight = fraction }
         fill.background.mutate().setTint(tone)
         findViewById<View>(R.id.bar).visibility = if (limit > 0) View.VISIBLE else View.INVISIBLE
+        val parentUntil = status?.parentUntil ?: 0L
         findViewById<TextView>(R.id.left).apply {
-            text = if (limit > 0) "${formatLong(left)} left of ${formatLong(limit)}" else "No daily limit"
+            text = when {
+                parentUntil > System.currentTimeMillis() -> "👤 Parent mode until ${formatClock(parentUntil)}. Not counted."
+                limit > 0 -> "${formatLong(left)} left of ${formatLong(limit)}"
+                else -> "No daily limit"
+            }
             setTextColor(if (limit > 0) tone else MUTED)
         }
 
@@ -86,12 +91,13 @@ class MainActivity : AppCompatActivity() {
             val start = if (weekend) config.weekendStart else config.weekdayStart
             val end = if (weekend) config.weekendEnd else config.weekdayEnd
             hours.text = "${formatTime(start)} – ${formatTime(end)}"
-            hoursDetail.text = if (weekend) "Weekend rules" else "Weekday rules"
+            hoursDetail.text = if (weekend) "TV hours, weekend" else "TV hours, school days"
         } else {
             hours.text = "Any time"
             hoursDetail.text = ""
         }
         if (config.bedtimeEnabled) {
+            // Only on setups the phone hasn't switched to TV hours yet.
             val bed = "Bedtime ${formatTime(config.bedtimeStart)}"
             hoursDetail.text = listOf(hoursDetail.text, bed).filter { it.isNotEmpty() }.joinToString(" · ")
         }
@@ -153,6 +159,8 @@ class MainActivity : AppCompatActivity() {
     private fun formatTime(minutes: Int): String =
         LocalTime.of(0, 0).plusMinutes(minutes.toLong())
             .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+
+    private fun formatClock(millis: Long): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(millis))
 
     private fun formatShort(minutes: Int): String = when {
         minutes < 60 -> "${minutes}m"

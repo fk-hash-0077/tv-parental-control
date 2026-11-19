@@ -232,6 +232,53 @@
                         android:visibility="gone" />
                 </LinearLayout>
 
+                <!-- Parent mode: no limits, no blocks, time not counted -->
+                <LinearLayout
+                    android:id="@+id/parentCard"
+                    style="@style/Card">
+
+                    <TextView
+                        android:id="@+id/parentTitle"
+                        style="@style/CardTitle"
+                        android:text="👤 Parent mode" />
+
+                    <TextView
+                        android:id="@+id/parentDetail"
+                        style="@style/Hint"
+                        android:text="No limits, no blocked apps. Your watching won't count." />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/parentOn"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:text="Turn on" />
+
+                        <Button
+                            android:id="@+id/parentMore"
+                            style="@style/Button.Soft"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:text="+1 hour"
+                            android:visibility="gone" />
+
+                        <Button
+                            android:id="@+id/parentEnd"
+                            style="@style/Button.Soft"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="End now"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </LinearLayout>
+
                 <!-- What's on the TV right now -->
                 <LinearLayout
                     android:id="@+id/nowCard"
@@ -390,9 +437,75 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
+                <!-- One sentence that says what today's rules mean. -->
+                <TextView
+                    android:id="@+id/tvTimeSummary"
+                    style="@style/Card"
+                    android:background="@drawable/card"
+                    android:lineSpacingExtra="3dp"
+                    android:textColor="@color/text"
+                    android:textSize="15sp" />
+
                 <LinearLayout style="@style/Card">
-                    <TextView style="@style/CardTitle" android:text="Daily TV time" />
-                    <TextView style="@style/Hint" android:text="Total minutes per day. 0 means no limit." />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/scheduleSwitch"
+                        style="@style/SwitchRow"
+                        android:text="TV hours: when" />
+
+                    <TextView style="@style/Hint" android:text="The TV rests outside these hours. The end time is bedtime." />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="96dp"
+                            android:layout_height="wrap_content"
+                            android:text="School days"
+                            android:textColor="@color/text" />
+
+                        <Button android:id="@+id/weekdayStart" style="@style/Button.Time" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="to"
+                            android:textColor="@color/muted" />
+
+                        <Button android:id="@+id/weekdayEnd" style="@style/Button.Time" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="96dp"
+                            android:layout_height="wrap_content"
+                            android:text="Weekend"
+                            android:textColor="@color/text" />
+
+                        <Button android:id="@+id/weekendStart" style="@style/Button.Time" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="to"
+                            android:textColor="@color/muted" />
+
+                        <Button android:id="@+id/weekendEnd" style="@style/Button.Time" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="Daily TV time: how much" />
+                    <TextView style="@style/Hint" android:text="Minutes per day inside TV hours. 0 means no limit." />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -442,98 +555,6 @@
                         android:text="Save" />
                 </LinearLayout>
 
-                <LinearLayout style="@style/Card">
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/scheduleSwitch"
-                        style="@style/SwitchRow"
-                        android:text="Allowed hours" />
-
-                    <TextView style="@style/Hint" android:text="The TV locks outside these hours." />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="76dp"
-                            android:layout_height="wrap_content"
-                            android:text="Mon–Fri"
-                            android:textColor="@color/text" />
-
-                        <Button android:id="@+id/weekdayStart" style="@style/Button.Time" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="to"
-                            android:textColor="@color/muted" />
-
-                        <Button android:id="@+id/weekdayEnd" style="@style/Button.Time" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="76dp"
-                            android:layout_height="wrap_content"
-                            android:text="Sat–Sun"
-                            android:textColor="@color/text" />
-
-                        <Button android:id="@+id/weekendStart" style="@style/Button.Time" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="to"
-                            android:textColor="@color/muted" />
-
-                        <Button android:id="@+id/weekendEnd" style="@style/Button.Time" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/bedtimeCard"
-                    style="@style/Card">
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/bedtimeSwitch"
-                        style="@style/SwitchRow"
-                        android:text="Bedtime" />
-
-                    <TextView style="@style/Hint" android:text="The whole TV locks every night." />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="76dp"
-                            android:layout_height="wrap_content"
-                            android:text="Every day"
-                            android:textColor="@color/text" />
-
-                        <Button android:id="@+id/bedtimeStart" style="@style/Button.Time" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="to"
-                            android:textColor="@color/muted" />
-
-                        <Button android:id="@+id/bedtimeEnd" style="@style/Button.Time" />
-                    </LinearLayout>
-                </LinearLayout>
             </LinearLayout>
 
             <!-- ===== Apps ===== -->
@@ -663,7 +684,7 @@
                 </LinearLayout>
 
                 <LinearLayout style="@style/Card">
-                    <TextView style="@style/CardTitle" android:text="Bedtime photo" />
+                    <TextView style="@style/CardTitle" android:text="TV resting photo" />
 
                     <TextView
                         android:id="@+id/bedtimePhotoLabel"
@@ -729,6 +750,17 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <!-- Times TV Guard wasn't running, and what keeps it running -->
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="🛡 Protection, last 7 days" />
+
+                    <TextView
+                        android:id="@+id/protectionLabel"
+                        style="@style/Hint"
+                        android:lineSpacingExtra="3dp"
+                        android:text="Waiting for the TV" />
+                </LinearLayout>
+
                 <LinearLayout style="@style/Card">
                     <TextView style="@style/CardTitle" android:text="TV Guard on the TV" />
 
@@ -792,7 +824,7 @@
         android:visibility="gone">
 
         <TextView android:id="@+id/navHome" style="@style/NavItem" android:text="⌂\nHome" />
-        <TextView android:id="@+id/navLimits" style="@style/NavItem" android:text="⏱\nLimits &amp; hours" />
+        <TextView android:id="@+id/navLimits" style="@style/NavItem" android:text="⏱\nTV time" />
         <TextView android:id="@+id/navApps" style="@style/NavItem" android:text="▦\nApps" />
         <TextView android:id="@+id/navFamily" style="@style/NavItem" android:text="☺\nFamily" />
         <TextView android:id="@+id/navDiag" style="@style/NavItem" android:text="✚\nDiagnostics" />
