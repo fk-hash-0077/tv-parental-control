@@ -26,6 +26,7 @@
         tools:ignore="QueryAllPackagesPermission" />
 
     <application
+        android:name=".TvGuardApp"
         android:allowBackup="false"
         android:banner="@drawable/banner"
         android:icon="@drawable/banner"

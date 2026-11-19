@@ -39,25 +39,48 @@ class GuardService : Service() {
     private val tick = object : Runnable {
         override fun run() {
             handler.removeCallbacks(this)
-            val result = Enforcer.evaluate(this@GuardService)
-            sync.pushStatus(result.status)
-            publishUsage(result.usage)
-            lastForeground = result.usage.foreground
-            publishNowPlaying()
-            publishCatalog()
-            checkForUpdateRequest()
-            checkForLogsRequest()
-            sync.pushDiag(startedAt, startedBy, Protection.diag(this@GuardService))
-            Store(this@GuardService).lastAliveAt = System.currentTimeMillis()
-            Protection.armAlarm(this@GuardService)
-            handler.postDelayed(this, INTERVAL_MS)
+            // Each step on its own: a failure is logged with its stack trace and the rest of the
+            // check still runs, instead of the whole app crashing and leaving the TV unguarded.
+            try {
+                step("rules") {
+                    val result = Enforcer.evaluate(this@GuardService)
+                    sync.pushStatus(result.status)
+                    lastForeground = result.usage.foreground
+                    step("usage") { publishUsage(result.usage) }
+                }
+                step("now playing") { publishNowPlaying() }
+                step("app list") { publishCatalog() }
+                step("update request") { checkForUpdateRequest() }
+                step("logs request") { checkForLogsRequest() }
+                step("diagnostics") { sync.pushDiag(startedAt, startedBy, Protection.diag(this@GuardService)) }
+                step("keep-alive") {
+                    Store(this@GuardService).lastAliveAt = System.currentTimeMillis()
+                    Protection.armAlarm(this@GuardService)
+                }
+            } finally {
+                handler.postDelayed(this, INTERVAL_MS)
+            }
+        }
+    }
+
+    /** Runs one step of a check; a failure is logged with its stack trace instead of crashing. */
+    private fun step(name: String, block: () -> Unit) {
+        try {
+            block()
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Check step \"$name\" failed", e)
         }
     }
 
     private val watchdog = object : Runnable {
         override fun run() {
-            sync.watchdog()
-            handler.postDelayed(this, WATCHDOG_MS)
+            try {
+                sync.watchdog()
+            } catch (e: Exception) {
+                AppLog.e(TAG, "Watchdog failed", e)
+            } finally {
+                handler.postDelayed(this, WATCHDOG_MS)
+            }
         }
     }
 
@@ -162,6 +185,11 @@ class GuardService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Every start goes through startForegroundService (keep-alive job, 5-minute alarm,
+        // lifeline, boot), and Android needs startForeground after *each* of them, not just the
+        // first. This TV's Android crashed TV Guard 5 seconds after a repeat start without it
+        // ("did not then call Service.startForeground"), so call it every time, first thing.
+        startInForeground()
         if (startedBy.isEmpty()) {
             // What brought TV Guard up, so the logs show whether the TV let it start by itself.
             startedBy = intent?.getStringExtra(EXTRA_REASON) ?: "restarted by Android"
