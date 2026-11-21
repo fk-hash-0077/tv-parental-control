@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             "Not synced yet"
         }
-        findViewById<TextView>(R.id.footer).text = "$lastSync · Version ${BuildConfig.VERSION_CODE}"
+        findViewById<TextView>(R.id.footer).text = "$lastSync · Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
     }
 
     private fun phoneSyncLine(store: Store): String {

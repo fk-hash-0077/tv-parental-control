@@ -23,6 +23,7 @@ class Diagnostics(
     private val diag: () -> DataSnapshot?,
     private val logs: () -> DataSnapshot?,
     private val requestLogs: () -> Long,
+    private val config: () -> Map<*, *> = { emptyMap<String, Any>() },
 ) {
     private val handler = Handler(Looper.getMainLooper())
     private var requestedAt = 0L
@@ -84,7 +85,7 @@ class Diagnostics(
 
         val lines = mutableListOf<String>()
         lines += "PHONE"
-        lines += "App version: ${BuildConfig.VERSION_CODE}"
+        lines += "App version: ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
         lines += "This phone online: ${if (phoneOnline()) "yes" else "no"}"
         lines += "TV code: ${code.chunked(4).joinToString("-")}"
         lines += ""
@@ -93,7 +94,9 @@ class Diagnostics(
         if (d == null || !d.exists()) {
             lines += "No connection details yet (the TV needs version 12 or newer)."
         } else {
-            lines += "TV Guard version: ${long(d, "version")}"
+            val tvName = str(d, "versionName")
+            lines += "TV Guard version: " +
+                if (tvName.isEmpty() || tvName.startsWith("0.")) "build ${long(d, "version")}" else "$tvName (build ${long(d, "version")})"
             lines += "TV: ${str(d, "model")}, Android ${str(d, "android")}"
             lines += "TV thinks it's connected: ${if (d.child("connected").value == true) "yes" else "no"}"
             lines += "Last confirmed save: ${whenAgo(long(d, "confirmedAt"))}"
@@ -107,6 +110,7 @@ class Diagnostics(
             }
             lines += "Lock: ${str(d, "lockReason").ifEmpty { "unlocked" }}"
         }
+        lines += lockNowLines(config()) { "on ${time(it)}" }
         lines += "Last Sync now answered: ${whenAgo(long(s, "pongAt"))}"
         lines += ""
         lines += "PROTECTION"
@@ -128,6 +132,30 @@ class Diagnostics(
     }
 
     companion object {
+        /**
+         * Who last pressed Lock now and Unlock TV, and when. Phones before version 1.0 didn't
+         * record this, so an older lock shows as "a phone (not recorded)".
+         */
+        /** [fmt] turns a time into a phrase like "at 3:40 PM" or "on 21/11/26 3:40 PM". */
+        fun lockNowLines(config: Map<*, *>, fmt: (Long) -> String): List<String> {
+            val on = config["lockNow"] as? Boolean ?: false
+            val by = config["lockNowBy"] as? String
+            val at = (config["lockNowAt"] as? Number)?.toLong() ?: 0L
+            val offBy = config["lockNowOffBy"] as? String
+            val offAt = (config["lockNowOffAt"] as? Number)?.toLong() ?: 0L
+            val lines = mutableListOf<String>()
+            lines += "Lock now: " + if (on) "ON" else "off"
+            lines += if (!by.isNullOrEmpty() && at > 0) {
+                "Last locked by $by ${fmt(at)}"
+            } else if (on) {
+                "Locked by a phone (not recorded; that phone has an older app)"
+            } else {
+                "Last locked by: not recorded yet"
+            }
+            if (!offBy.isNullOrEmpty() && offAt > 0) lines += "Last unlocked by $offBy ${fmt(offAt)}"
+            return lines
+        }
+
         /**
          * What keeps TV Guard running on the TV, and every time in the last 7 days it wasn't
          * running while the TV was being watched, with Android's reason. [fmt] formats a time.

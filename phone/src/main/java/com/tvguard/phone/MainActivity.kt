@@ -101,6 +101,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appsLabel: TextView
     private lateinit var usageList: LinearLayout
     private lateinit var historyChart: HistoryChartView
+    private lateinit var historyTotal: TextView
+    private lateinit var lockNowHistory: TextView
+    private lateinit var updateCard: View
+    private lateinit var updateCardTitle: TextView
+    private lateinit var updateCardText: TextView
+    private lateinit var updateCardTv: Button
+    private lateinit var updateCardPhone: Button
     private lateinit var requestSection: View
     private lateinit var requestLabel: TextView
     private lateinit var pendingSection: LinearLayout
@@ -145,6 +152,8 @@ class MainActivity : AppCompatActivity() {
     private var requestAnswer: DataSnapshot? = null
     private var diag: DataSnapshot? = null
     private var logs: DataSnapshot? = null
+    private var parents: DataSnapshot? = null
+    private var latestRelease: ReleaseCheck.Release? = null
     private var phoneOnline = true
     private var pingSentAt = 0L
 
@@ -163,6 +172,8 @@ class MainActivity : AppCompatActivity() {
 
     private val refresh = object : Runnable {
         override fun run() {
+            // Asks GitHub at most every 30 minutes; the answer redraws the update card.
+            ReleaseCheck.refresh(this@MainActivity) { latestRelease = it; render() }
             render()
             handler.postDelayed(this, 30_000)
         }
@@ -197,6 +208,14 @@ class MainActivity : AppCompatActivity() {
         appsLabel = findViewById(R.id.appsLabel)
         usageList = findViewById(R.id.usageList)
         historyChart = findViewById(R.id.historyChart)
+        historyTotal = findViewById(R.id.historyTotal)
+        lockNowHistory = findViewById(R.id.lockNowHistory)
+        updateCard = findViewById(R.id.updateCard)
+        updateCardTitle = findViewById(R.id.updateCardTitle)
+        updateCardText = findViewById(R.id.updateCardText)
+        updateCardTv = findViewById(R.id.updateCardTv)
+        updateCardPhone = findViewById(R.id.updateCardPhone)
+        latestRelease = ReleaseCheck.cached(this)
         requestSection = findViewById(R.id.requestSection)
         requestLabel = findViewById(R.id.requestLabel)
         pendingSection = findViewById(R.id.pendingSection)
@@ -272,15 +291,10 @@ class MainActivity : AppCompatActivity() {
                 toast("Emergency code saved")
             }
         }
-        findViewById<Button>(R.id.updateTv).setOnClickListener {
-            updateAskedAt = System.currentTimeMillis()
-            updateTextAtAsk = tvStatus?.child("update")?.getValue(String::class.java).orEmpty()
-            write(mapOf("updateRequestAt" to updateAskedAt))
-            toast("Asked the TV to update")
-        }
-        findViewById<Button>(R.id.phoneUpdate).setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${BuildConfig.RELEASES_REPO}/releases/latest")))
-        }
+        findViewById<Button>(R.id.updateTv).setOnClickListener { requestTvUpdate() }
+        updateCardTv.setOnClickListener { requestTvUpdate() }
+        findViewById<Button>(R.id.phoneUpdate).setOnClickListener { openPhoneUpdate() }
+        updateCardPhone.setOnClickListener { openPhoneUpdate() }
         limitPhoto = PhotoSlot(
             "photo", "photoAt", "when weekday TV time is used up",
             findViewById(R.id.photoLabel), findViewById(R.id.photoRemove),
@@ -482,6 +496,9 @@ class MainActivity : AppCompatActivity() {
             historyChart.setData(
                 snapshot.children.associate { (it.key ?: "") to ((it.value as? Number)?.toInt() ?: 0) }
             )
+            val (total, average) = historyChart.totals()
+            historyTotal.text = "Total ${formatMinutes(total)} · about ${formatMinutes(average)} a day"
+            historyTotal.visibility = if (total > 0) View.VISIBLE else View.GONE
         }
         listen(ref.child("usage")) { usage = it; render() }
         listen(ref.child("nowPlaying")) { nowPlaying = it; render() }
@@ -491,7 +508,7 @@ class MainActivity : AppCompatActivity() {
         listen(ref.child("request")) { request = it; render() }
         listen(ref.child("requestAnswer")) { requestAnswer = it; render() }
         listen(ref.child("pending")) { renderPending(it) }
-        listen(ref.child("parents")) { renderPhones(it) }
+        listen(ref.child("parents")) { parents = it; renderPhones(it); render() }
         listen(ref.child("diag")) { diag = it; renderProtection() }
         listen(ref.child("logs")) { logs = it }
         Cloud.registerToken(this)
@@ -580,10 +597,68 @@ class MainActivity : AppCompatActivity() {
         val version = (s?.child("versionCode")?.value as? Number)?.toInt()
         val update = s?.child("update")?.getValue(String::class.java).orEmpty()
         updateLabel.text = listOfNotNull(
-            version?.let { "Version $it" },
+            version?.let { "Version ${tvVersionLabel()}" },
             update.ifEmpty { null },
         ).joinToString("\n").ifEmpty { "Waiting for the TV" }
+        renderUpdateCard()
+        lockNowHistory.text = Diagnostics.lockNowLines(config) { formatDayTime(it) }
+            .joinToString("\n")
         announceUpdateResult(update)
+    }
+
+    private fun tvVersionLabel(): String {
+        val code = (tvStatus?.child("versionCode")?.value as? Number)?.toInt() ?: 0
+        return ReleaseCheck.label(tvStatus?.child("versionName")?.getValue(String::class.java), code)
+    }
+
+    private fun phoneVersionLabel(): String = ReleaseCheck.label(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+
+    /**
+     * The "Update available" card on Home: shown while the phone app or the TV is older than
+     * the newest release on GitHub, with a button for each one that needs it.
+     */
+    private fun renderUpdateCard() {
+        val release = latestRelease
+        val tvCode = (tvStatus?.child("versionCode")?.value as? Number)?.toInt() ?: 0
+        val update = tvStatus?.child("update")?.getValue(String::class.java).orEmpty()
+        val phoneOld = release != null && BuildConfig.VERSION_CODE < release.build
+        val tvOld = release != null && tvCode in 1 until release.build
+        updateCard.visibility = if (phoneOld || tvOld) View.VISIBLE else View.GONE
+        if (release == null || !(phoneOld || tvOld)) return
+        val newName = release.name
+        val tvBusy = tvOld && (update.startsWith("Downloading") || update.startsWith("Installing") ||
+            update.startsWith("Checking"))
+        updateCardTitle.text = "⬆ Version $newName is ready"
+        updateCardText.text = listOfNotNull(
+            if (tvOld) {
+                if (tvBusy) "TV: $update" else "TV has ${tvVersionLabel()}. Tap Update TV; it installs by itself in a few minutes."
+            } else {
+                null
+            },
+            if (phoneOld) {
+                "This phone has ${phoneVersionLabel()}. Tap Update this phone, then open the downloaded file to install it."
+            } else {
+                null
+            },
+        ).joinToString("\n")
+        updateCardTv.visibility = if (tvOld) View.VISIBLE else View.GONE
+        updateCardTv.isEnabled = !tvBusy
+        updateCardPhone.visibility = if (phoneOld) View.VISIBLE else View.GONE
+    }
+
+    private fun requestTvUpdate() {
+        updateAskedAt = System.currentTimeMillis()
+        updateTextAtAsk = tvStatus?.child("update")?.getValue(String::class.java).orEmpty()
+        write(mapOf("updateRequestAt" to updateAskedAt))
+        toast("Asked the TV to update")
+    }
+
+    /** Downloads the newest phone app straight away when known, otherwise opens the release page. */
+    private fun openPhoneUpdate() {
+        val apk = latestRelease?.phoneApkUrl.orEmpty()
+        val url = apk.ifEmpty { "https://github.com/${BuildConfig.RELEASES_REPO}/releases/latest" }
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        if (apk.isNotEmpty()) toast("Downloading. Open the file when it finishes to install.")
     }
 
     /** After Update TV, tells the parent once how it ended, so they don't have to watch the label. */
@@ -765,7 +840,7 @@ class MainActivity : AppCompatActivity() {
                 when (reason) {
                     "hours", "bedtime", "schedule" -> pill("🌙 Outside TV hours", color(R.color.bad))
                     "limit" -> pill("🔒 TV time used up", color(R.color.bad))
-                    "manual" -> pill("🔒 Locked by you", color(R.color.bad))
+                    "manual" -> pill("🔒 " + lockedByShort(), color(R.color.bad))
                     else -> pill("🔓 Unlocked", color(R.color.ok))
                 }
             )
@@ -948,6 +1023,29 @@ class MainActivity : AppCompatActivity() {
         pendingSection.visibility = if (snapshot.hasChildren()) View.VISIBLE else View.GONE
     }
 
+    /** The name shown on the TV ("Locked by …") and in the phones list, e.g. "Fahad's phone". */
+    private fun renamePhone(code: String, uid: String, current: String) {
+        val input = EditText(this).apply {
+            setText(current)
+            setSelectAllOnFocus(true)
+            filters = arrayOf(android.text.InputFilter.LengthFilter(40))
+        }
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val box = android.widget.FrameLayout(this).apply { setPadding(pad, pad / 2, pad, 0); addView(input) }
+        AlertDialog.Builder(this)
+            .setTitle("Name this phone")
+            .setMessage("The TV shows this name when this phone locks it, for example \"Fahad's phone\".")
+            .setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isEmpty()) return@setPositiveButton
+                Cloud.device(code).child("parents").child(uid).child("name").setValue(name)
+                    .addOnFailureListener { toast("Couldn't save: ${it.message}") }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun renderPhones(snapshot: DataSnapshot) {
         phonesList.removeAllViews()
         val code = Cloud.code(this) ?: return
@@ -960,7 +1058,12 @@ class MainActivity : AppCompatActivity() {
                 text = if (uid == me) "$name (this phone)" else name
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
-            if (uid != me) {
+            if (uid == me) {
+                row.addView(Button(this, null, android.R.attr.borderlessButtonStyle).apply {
+                    text = "Rename"
+                    setOnClickListener { renamePhone(code, uid, name) }
+                })
+            } else {
                 row.addView(Button(this, null, android.R.attr.borderlessButtonStyle).apply {
                     text = "Remove"
                     setOnClickListener {
@@ -1000,8 +1103,23 @@ class MainActivity : AppCompatActivity() {
     private fun formatWhen(millis: Long): String =
         DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(millis))
 
-    private fun formatMinutes(minutes: Int): String =
-        if (minutes >= 60) "${minutes / 60} h ${minutes % 60} min" else "$minutes min"
+    /** "at 3:40 PM" today, "yesterday at 3:40 PM", otherwise "on Fri 20 Nov at 3:40 PM". */
+    private fun formatDayTime(millis: Long): String {
+        val day = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val time = formatWhen(millis)
+        return when (java.time.temporal.ChronoUnit.DAYS.between(day, LocalDate.now())) {
+            0L -> "at $time"
+            1L -> "yesterday at $time"
+            else -> "on ${day.format(DateTimeFormatter.ofPattern("EEE d MMM"))} at $time"
+        }
+    }
+
+    /** "45 min", "2 h" or "5 h 20 min". */
+    private fun formatMinutes(minutes: Int): String = when {
+        minutes < 60 -> "$minutes min"
+        minutes % 60 == 0 -> "${minutes / 60} h"
+        else -> "${minutes / 60} h ${minutes % 60} min"
+    }
 
     /** "1h 26m", for the ring. */
     private fun formatShort(minutes: Int): String = when {
@@ -1038,6 +1156,7 @@ class MainActivity : AppCompatActivity() {
             status = { tvStatus },
             diag = { diag },
             logs = { logs },
+            config = { config },
             requestLogs = {
                 val at = System.currentTimeMillis()
                 write(mapOf("logsRequestAt" to at))
@@ -1101,16 +1220,47 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** This phone's name as the parents list has it, e.g. "Fahad's phone". */
+    private fun myPhoneName(): String {
+        val me = Cloud.uid()
+        return me?.let { parents?.child(it)?.child("name")?.getValue(String::class.java) }
+            ?: "${Build.MANUFACTURER} ${Build.MODEL}"
+    }
+
+    /** "Locked by this phone at 3:40 PM" / "Locked by Mum's phone at 3:40 PM" for the status pill. */
+    private fun lockedByShort(): String {
+        val by = config["lockNowBy"] as? String
+        val at = long("lockNowAt")
+        if (by.isNullOrEmpty() || at <= 0) return "Locked from a phone"
+        val who = if (config["lockNowByUid"] == Cloud.uid()) "this phone" else by
+        return "Locked by $who ${formatDayTime(at)}"
+    }
+
     private fun toggleLockNow() {
         if (bool("lockNow")) {
-            write(mapOf("lockNow" to false))
+            write(
+                mapOf(
+                    "lockNow" to false,
+                    "lockNowOffBy" to myPhoneName(),
+                    "lockNowOffAt" to System.currentTimeMillis(),
+                )
+            )
             toast("Unlocking the TV")
         } else {
             AlertDialog.Builder(this)
                 .setMessage("Lock the TV now? It stays locked until you unlock it here.")
                 .setPositiveButton("Lock") { _, _ ->
                     // Also cancels any extra time given earlier, so the lock takes effect at once.
-                    write(mapOf("lockNow" to true, "overrideUntil" to 0))
+                    write(
+                        mapOf(
+                            "lockNow" to true,
+                            "overrideUntil" to 0,
+                            // Shown on the TV's lock screen and in Diagnostics.
+                            "lockNowBy" to myPhoneName(),
+                            "lockNowByUid" to (Cloud.uid() ?: ""),
+                            "lockNowAt" to System.currentTimeMillis(),
+                        )
+                    )
                     toast("Locking the TV")
                 }
                 .setNegativeButton("Cancel", null)

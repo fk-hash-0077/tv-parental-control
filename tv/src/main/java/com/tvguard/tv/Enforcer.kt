@@ -54,7 +54,12 @@ object Enforcer {
         val lock = decision.lockTv && policy.isDeviceOwner
         val newReason = if (lock) decision.reason else ""
         if (newReason != store.lockReason) {
-            AppLog.i("TvGuardRules", if (newReason.isEmpty()) "TV unlocked" else "TV locked: $newReason")
+            val by = if (newReason == "manual" && config.lockNowBy.isNotEmpty()) {
+                " (Lock now from ${config.lockNowBy} at ${AppLog.timeOf(config.lockNowAt)})"
+            } else {
+                ""
+            }
+            AppLog.i("TvGuardRules", if (newReason.isEmpty()) "TV unlocked" else "TV locked: $newReason$by")
         }
         store.lockReason = newReason
         if (lock) {
@@ -181,6 +186,7 @@ object Enforcer {
             bedtimePhotoAt = if (LockPhoto.exists(context, bedtime = true)) store.bedtimePhotoAt else 0,
             parentUntil = parentUntil,
             parentMinutesToday = parentMinutes,
+            versionName = BuildConfig.VERSION_NAME,
         ).also { store.lastStatus = it }
     }
 

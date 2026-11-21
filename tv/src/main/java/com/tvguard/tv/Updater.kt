@@ -32,6 +32,9 @@ object Updater {
             state("Checking for updates…")
             val release = fetchJson("https://api.github.com/repos/${BuildConfig.RELEASES_REPO}/releases/latest")
             val version = release.optString("tag_name").trimStart('v').toIntOrNull()
+            // Release titles look like "TV Guard 1.1"; older ones were "TV Guard version 37".
+            val label = release.optString("name").removePrefix("TV Guard").trim()
+                .takeIf { it.isNotEmpty() && !it.startsWith("version") } ?: "build $version"
             val assets = release.optJSONArray("assets")
             val url = (0 until (assets?.length() ?: 0))
                 .map { assets!!.getJSONObject(it) }
@@ -42,15 +45,15 @@ object Updater {
                 return
             }
             if (version <= BuildConfig.VERSION_CODE) {
-                state("Up to date (version ${BuildConfig.VERSION_CODE})")
+                state("Up to date (version ${BuildConfig.VERSION_NAME})")
                 return
             }
 
-            state("Downloading version $version…")
+            state("Downloading version $label…")
             val apk = File(context.cacheDir, "update.apk")
             download(url, apk)
 
-            state("Installing version $version…")
+            state("Installing version $label…")
             store.updateTarget = version
             store.updatingSince = System.currentTimeMillis()
             Policy(context).setInstallsAllowed(true)
@@ -72,7 +75,7 @@ object Updater {
         val target = store.updateTarget
         if (target <= 0) return
         if (BuildConfig.VERSION_CODE >= target) {
-            store.updateState = "Updated to version ${BuildConfig.VERSION_CODE}"
+            store.updateState = "Updated to version ${BuildConfig.VERSION_NAME}"
             store.updateTarget = 0
             store.updatingSince = 0
         }
@@ -151,7 +154,7 @@ class UpdateReceiver : BroadcastReceiver() {
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
         AppLog.init(context)
         if (status == PackageInstaller.STATUS_SUCCESS) {
-            AppLog.i("TvGuardUpdate", "Install finished, starting version ${BuildConfig.VERSION_CODE}")
+            AppLog.i("TvGuardUpdate", "Install finished, starting version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
             Updater.reportFinished(context)
             GuardService.start(context, "update installed")
             return

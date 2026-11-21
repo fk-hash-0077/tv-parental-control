@@ -232,6 +232,43 @@
                         android:visibility="gone" />
                 </LinearLayout>
 
+                <!-- A newer TV Guard is on GitHub for this phone, the TV, or both -->
+                <LinearLayout
+                    android:id="@+id/updateCard"
+                    style="@style/Card"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/updateCardTitle"
+                        style="@style/CardTitle"
+                        android:text="⬆ Update available" />
+
+                    <TextView
+                        android:id="@+id/updateCardText"
+                        style="@style/Hint"
+                        android:lineSpacingExtra="3dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/updateCardTv"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:text="Update TV" />
+
+                        <Button
+                            android:id="@+id/updateCardPhone"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Update this phone" />
+                    </LinearLayout>
+                </LinearLayout>
+
                 <!-- Parent mode: no limits, no blocks, time not counted -->
                 <LinearLayout
                     android:id="@+id/parentCard"
@@ -419,13 +456,19 @@
                     android:paddingTop="8dp"
                     android:paddingBottom="8dp" />
 
-                <TextView style="@style/Section" android:text="Last 7 days (minutes)" />
+                <TextView style="@style/Section" android:text="Last 7 days" />
 
                 <LinearLayout style="@style/Card">
                     <com.tvguard.phone.HistoryChartView
                         android:id="@+id/historyChart"
                         android:layout_width="match_parent"
-                        android:layout_height="170dp" />
+                        android:layout_height="180dp" />
+
+                    <TextView
+                        android:id="@+id/historyTotal"
+                        style="@style/Hint"
+                        android:layout_marginTop="8dp"
+                        android:visibility="gone" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -748,6 +791,17 @@
                             android:layout_height="wrap_content"
                             android:text="Details and logs" />
                     </LinearLayout>
+                </LinearLayout>
+
+                <!-- Which phone last pressed Lock now / Unlock TV, and when -->
+                <LinearLayout style="@style/Card">
+                    <TextView style="@style/CardTitle" android:text="⏸ Lock now" />
+
+                    <TextView
+                        android:id="@+id/lockNowHistory"
+                        style="@style/Hint"
+                        android:lineSpacingExtra="3dp"
+                        android:text="Waiting for the TV" />
                 </LinearLayout>
 
                 <!-- Times TV Guard wasn't running, and what keeps it running -->
