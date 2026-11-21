@@ -52,6 +52,9 @@ data class GuardConfig(
     val releaseOwner: Boolean = false,
     /** The phone's "Lock now": the whole TV stays locked until the phone turns it off. */
     val lockNow: Boolean = false,
+    /** Name of the phone that last turned [lockNow] on, and when (empty/0 on older phones). */
+    val lockNowBy: String = "",
+    val lockNowAt: Long = 0,
     /**
      * Parent mode: from [parentFrom] until [parentUntil] nothing is locked or blocked and TV time
      * isn't counted. Set from a phone or the TV lock screen; "End now" sets [parentUntil] to now.
@@ -84,6 +87,8 @@ data class GuardConfig(
         "emergencySetAt" to emergencySetAt,
         "releaseOwner" to releaseOwner,
         "lockNow" to lockNow,
+        "lockNowBy" to lockNowBy,
+        "lockNowAt" to lockNowAt,
         "parentFrom" to parentFrom,
         "parentUntil" to parentUntil,
     )
@@ -131,6 +136,8 @@ data class GuardConfig(
                 emergencySetAt = long("emergencySetAt", 0),
                 releaseOwner = bool("releaseOwner", false),
                 lockNow = bool("lockNow", false),
+                lockNowBy = str("lockNowBy", "").take(60),
+                lockNowAt = long("lockNowAt", 0),
                 parentFrom = long("parentFrom", 0),
                 parentUntil = long("parentUntil", 0),
             )
@@ -167,6 +174,8 @@ data class GuardStatus(
     val parentUntil: Long = 0,
     /** Minutes watched in parent mode today (not part of [usedMinutesToday]). */
     val parentMinutesToday: Int = 0,
+    /** The version people see, e.g. "1.0". [versionCode] is the hidden build number. */
+    val versionName: String = "",
 ) {
     fun toMap(): Map<String, Any> = mapOf(
         "usedMinutesToday" to usedMinutesToday,
@@ -189,6 +198,7 @@ data class GuardStatus(
         "bedtimePhotoAt" to bedtimePhotoAt,
         "parentUntil" to parentUntil,
         "parentMinutesToday" to parentMinutesToday,
+        "versionName" to versionName,
     )
 }
 
@@ -389,6 +399,7 @@ class Store(context: Context) {
                     bedtimePhotoAt = o.optLong("bedtimePhotoAt"),
                     parentUntil = o.optLong("parentUntil"),
                     parentMinutesToday = o.optInt("parentMinutesToday"),
+                    versionName = o.optString("versionName"),
                 )
             }.getOrNull()
         }

@@ -17,6 +17,10 @@ object AppLog {
     private val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
     @Volatile private var file: File? = null
 
+    /** A time in the same style as log lines, for times mentioned inside a message. */
+    fun timeOf(millis: Long): String =
+        if (millis <= 0) "unknown time" else SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(millis))
+
     fun init(context: Context) {
         if (file == null) file = File(context.applicationContext.filesDir, "tvguard.log")
     }

@@ -159,7 +159,7 @@ class GuardService : Service() {
     override fun onCreate() {
         super.onCreate()
         AppLog.init(this)
-        AppLog.i(TAG, "Started, version ${BuildConfig.VERSION_CODE}")
+        AppLog.i(TAG, "Started, version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
         previousAliveAt = Store(this).lastAliveAt
         startInForeground()
         Updater.reportFinished(this)

@@ -21,7 +21,7 @@ android {
         // replace the previous one and the TV can tell which release is newer.
         val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
         versionCode = buildNumber
-        versionName = "0.2.$buildNumber"
+        versionName = (project.findProperty("appVersionName") as String?) ?: "1.0"
         // Where "Update TV" looks for new releases.
         val repo = System.getenv("GITHUB_REPOSITORY") ?: "fk-hash-0077/tv-parental-control"
         buildConfigField("String", "RELEASES_REPO", "\"$repo\"")

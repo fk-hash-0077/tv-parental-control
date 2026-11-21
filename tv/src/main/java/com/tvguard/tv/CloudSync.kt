@@ -355,6 +355,7 @@ class CloudSync(private val context: Context, private val onConfigChanged: () ->
                 "startedBy" to startedBy,
                 "lockReason" to store.lockReason,
                 "version" to BuildConfig.VERSION_CODE,
+                "versionName" to BuildConfig.VERSION_NAME,
                 "android" to Build.VERSION.RELEASE,
                 "model" to Build.MODEL,
                 "at" to System.currentTimeMillis(),

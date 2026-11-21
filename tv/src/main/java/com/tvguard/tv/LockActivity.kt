@@ -121,7 +121,8 @@ class LockActivity : AppCompatActivity() {
             "manual" -> {
                 icon.text = "⏸"
                 title.text = "A parent paused the TV"
-                detail.text = "It unlocks when they say so"
+                detail.text = lockedByText(config, now)?.let { "$it\nIt unlocks when they say so" }
+                    ?: "It unlocks when they say so"
             }
             else -> {
                 icon.text = "⏰"
@@ -162,6 +163,19 @@ class LockActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.watched).text = if (used > 0) "You watched ${formatMinutes(used)} today" else ""
         askButton.visibility = if (choosing) View.GONE else View.VISIBLE
         answer.text = if (choosing) "Code accepted. What would you like?" else answerText()
+    }
+
+    /** "Locked by Fahad's phone at 3:40 PM", or null when the phone that locked it didn't say. */
+    private fun lockedByText(config: GuardConfig, now: LocalDateTime): String? {
+        if (config.lockNowBy.isEmpty() || config.lockNowAt <= 0) return null
+        val at = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(config.lockNowAt), java.time.ZoneId.systemDefault())
+        val time = at.toLocalTime().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+        val day = when (java.time.temporal.ChronoUnit.DAYS.between(at.toLocalDate(), now.toLocalDate())) {
+            0L -> "at $time"
+            1L -> "yesterday at $time"
+            else -> "on ${at.format(DateTimeFormatter.ofPattern("EEEE d MMM"))} at $time"
+        }
+        return "Locked by ${config.lockNowBy} $day"
     }
 
     /** "at 3:00 PM", "tomorrow at 3:00 PM" or "on Saturday at 9:00 AM". */

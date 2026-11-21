@@ -57,12 +57,15 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.GOOGLE_SERVICES_JSON != ''
         env:
           GH_TOKEN: ${{ github.token }}
+        # The tag stays v<build number> (the apps compare it to their own build number); the title
+        # carries the version people see, e.g. "TV Guard 1.1", which the phone shows in its update banner.
         run: |
+          name=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)
           gh release create "v$BUILD_NUMBER" \
             tv/build/outputs/apk/debug/tv-debug.apk \
             phone/build/outputs/apk/debug/phone-debug.apk \
-            --title "TV Guard version $BUILD_NUMBER" \
-            --notes "Built from ${GITHUB_SHA::7}. Install phone-debug.apk on your phone; the TV updates itself from the phone's Update TV button."
+            --title "TV Guard $name" \
+            --notes "Version $name (build $BUILD_NUMBER), built from ${GITHUB_SHA::7}. Install phone-debug.apk on your phone; the TV updates itself from the phone's Update TV button."
 
   # Deploys the database rules and the notification functions. Runs only once the
   # FIREBASE_SERVICE_ACCOUNT secret is added (see SETUP), and only from main.
