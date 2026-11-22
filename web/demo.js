@@ -23,9 +23,12 @@ const data = {
       tvUid: "tv",
       secret: "AAECAwQFBgcICQoLDA0ODxAREhM=",
       parents: mode === "wait" ? { dad: { name: "Pixel 8" } } : { dad: { name: "Pixel 8" }, [UID]: { name: "Mom's iPhone" } },
-      config: { dailyLimitMinutes: 120, weekendLimitMinutes: 180, bedtimeEnabled: true, scheduleEnabled: true, emergencyCode: "012301" },
+      config: { dailyLimitMinutes: 120, weekendLimitMinutes: 180, scheduleEnabled: true, weekdayEnd: 20 * 60 + 30,
+        emergencyCode: "012301", lockNowBy: "Pixel 8", lockNowAt: now - 3 * 3600000, lockNowOffBy: "Pixel 8", lockNowOffAt: now - 2 * 3600000,
+        ...(mode === "parent" ? { parentFrom: now - 600000, parentUntil: now + 3600000 } : {}),
+        ...(mode === "bedtime" ? { bedtimeEnabled: true, bedtimeStart: 21 * 60, bedtimeEnd: 7 * 60 } : {}) },
       status: { updatedAt: now - 20000, usedMinutesToday: 86, limitMinutesToday: 120, reason: "", locked: false,
-        versionCode: 25, update: "Up to date", deviceOwner: true, usageAccess: true, photoAt: now - 86400000 },
+        versionCode: 40, versionName: "1.0.1", update: "Up to date", parentMinutesToday: mode === "parent" ? 25 : 0, deviceOwner: true, usageAccess: true, photoAt: now - 86400000 },
       nowPlaying: { app: "Netflix", title: "", playing: true, titleAccess: true },
       usage: { date: today, apps: [
         { label: "Netflix", pkg: "com.netflix.ninja", minutes: 52 },
@@ -44,7 +47,7 @@ const data = {
   },
 };
 if (mode === "pair") delete data.devices[CODE].parents[UID];
-if (mode === "home" || mode === "request") {
+if (mode !== "pair" && mode !== "wait") {
   try { localStorage.setItem("tvguard.code", CODE); } catch (e) { /* preview only */ }
 }
 

@@ -17,9 +17,11 @@ export const TIME_DEFAULTS = {
   weekdayEnd: 19 * 60,
   weekendStart: 9 * 60,
   weekendEnd: 20 * 60,
-  bedtimeStart: 21 * 60,
-  bedtimeEnd: 7 * 60,
 };
+
+/** Parent mode never lasts past 6:00 AM; must match Rules.parentCutoff on the TV. */
+export const PARENT_CUTOFF_HOUR = 6;
+export const HOUR_MS = 3600000;
 
 // ---- One-time unlock codes (same as Totp.kt on the phone and TV) ----
 
@@ -93,9 +95,12 @@ export function localDate(date = new Date()) {
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
 }
 
+/** "45 min", "2 h" or "5 h 20 min". */
 export function formatMinutes(minutes) {
   const m = Math.max(0, Math.round(minutes));
-  return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+  if (m < 60) return `${m} min`;
+  if (m % 60 === 0) return `${m / 60} h`;
+  return `${Math.floor(m / 60)} h ${m % 60} min`;
 }
 
 /** "1h 26m", for the ring. */
@@ -172,8 +177,8 @@ export function openRequest(request, answer, now) {
   const askedAt = request && typeof request.at === "number" ? request.at : 0;
   const answeredFor = answer && typeof answer.requestAt === "number" ? answer.requestAt : 0;
   if (askedAt <= 0 || askedAt === answeredFor || now - askedAt >= 3600000) return null;
-  const why = { bedtime: "during bedtime", schedule: "outside allowed hours" }[request.reason] ||
-    "after today's limit";
+  const why = { hours: "outside TV hours", bedtime: "outside TV hours", schedule: "outside TV hours",
+    manual: "while you've locked it" }[request.reason] || "after today's TV time";
   return { at: askedAt, reason: request.reason || "limit", why };
 }
 
@@ -214,13 +219,121 @@ export function connection(phoneOnline, seen, now, formatWhen) {
     synced: `Synced ${formatWhen(seen)} · tap to sync ⟳` };
 }
 
-export function lockPill(reason) {
+/** The lock pill on Home. [lockedBy] is lockedByShort's text, for a Lock now lock. */
+export function lockPill(reason, lockedBy = "Locked from a phone") {
+  const hours = { text: "🌙 Outside TV hours", tone: "bad" };
   return {
-    bedtime: { text: "🌙 Bedtime lock", tone: "bad" },
-    schedule: { text: "🔒 Outside allowed hours", tone: "bad" },
-    limit: { text: "🔒 Time's up", tone: "bad" },
-    manual: { text: "🔒 Locked by you", tone: "bad" },
+    hours, bedtime: hours, schedule: hours,
+    limit: { text: "🔒 TV time used up", tone: "bad" },
+    manual: { text: `🔒 ${lockedBy}`, tone: "bad" },
   }[reason] || { text: "🔓 Unlocked", tone: "ok" };
+}
+
+/** "at 3:40 PM" today, "yesterday at 3:40 PM", otherwise "on Fri 20 Nov at 3:40 PM". */
+export function formatDayTime(millis, now, formatWhen) {
+  const day = new Date(millis);
+  const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOf(new Date(now)) - startOf(day)) / 86400000);
+  if (days === 0) return `at ${formatWhen(millis)}`;
+  if (days === 1) return `yesterday at ${formatWhen(millis)}`;
+  const name = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day.getDay()];
+  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][day.getMonth()];
+  return `on ${name} ${day.getDate()} ${month} at ${formatWhen(millis)}`;
+}
+
+/** "Locked by this phone at 3:40 PM" / "Locked by Mum's phone at 3:40 PM". */
+export function lockedByShort(config, myUid, now, formatWhen) {
+  const by = config && config.lockNowBy;
+  const at = num(config, "lockNowAt", 0);
+  if (!by || at <= 0) return "Locked from a phone";
+  const who = config.lockNowByUid === myUid ? "this phone" : by;
+  return `Locked by ${who} ${formatDayTime(at, now, formatWhen)}`;
+}
+
+/** Who last locked and unlocked the TV with Lock now, like Diagnostics.lockNowLines. */
+export function lockNowLines(config, fmt) {
+  const c = config || {};
+  const at = num(c, "lockNowAt", 0);
+  const offAt = num(c, "lockNowOffAt", 0);
+  const lines = [`Lock now: ${c.lockNow === true ? "ON" : "off"}`];
+  if (c.lockNowBy && at > 0) lines.push(`Last locked by ${c.lockNowBy} ${fmt(at)}`);
+  else if (c.lockNow === true) lines.push("Locked by a phone (not recorded; that phone has an older app)");
+  else lines.push("Last locked by: not recorded yet");
+  if (c.lockNowOffBy && offAt > 0) lines.push(`Last unlocked by ${c.lockNowOffBy} ${fmt(offAt)}`);
+  return lines;
+}
+
+/** "1.0.3" from the TV's versionName, else "build 42". Same as ReleaseCheck.label. */
+export function versionLabel(name, build) {
+  return name && !String(name).startsWith("0.") ? String(name) : `build ${build}`;
+}
+
+// ---- TV time ----
+
+const isWeekend = (date) => date.getDay() === 0 || date.getDay() === 6;
+
+/** Today's TV hours [start, end] in minutes of the day. */
+export function hoursToday(config, date = new Date()) {
+  return isWeekend(date)
+    ? [num(config, "weekendStart", TIME_DEFAULTS.weekendStart), num(config, "weekendEnd", TIME_DEFAULTS.weekendEnd)]
+    : [num(config, "weekdayStart", TIME_DEFAULTS.weekdayStart), num(config, "weekdayEnd", TIME_DEFAULTS.weekdayEnd)];
+}
+
+/** "📺 Today: TV can be on 3:00 PM to 8:30 PM, for up to 2 h. …" */
+export function tvTimeSummary(config, date = new Date()) {
+  const limit = isWeekend(date) ? num(config, "weekendLimitMinutes", 180) : num(config, "dailyLimitMinutes", 120);
+  const hoursOn = config && config.scheduleEnabled === true;
+  const [start, end] = hoursToday(config, date);
+  const amount = limit > 0 ? formatMinutes(limit) : "";
+  let text;
+  if (hoursOn && limit > 0) {
+    text = `TV can be on ${formatTime(start)} to ${formatTime(end)}, for up to ${amount}.\n` +
+      `It locks at ${formatTime(end)}, or sooner if the ${amount} run out.`;
+  } else if (hoursOn) text = `TV can be on ${formatTime(start)} to ${formatTime(end)}, with no daily limit.`;
+  else if (limit > 0) text = `TV can be on any time, for up to ${amount}.`;
+  else text = "No TV hours and no daily limit. The TV never locks by itself.";
+  return `📺 Today: ${text}`;
+}
+
+/**
+ * TV hours used to come with a separate bedtime; now the end of TV hours is bedtime. Returns the
+ * config changes that move an old bedtime into TV hours, or null. Same as migrateBedtime on Android.
+ */
+export function bedtimeMigration(config) {
+  if (!config || config.bedtimeEnabled !== true) return null;
+  const bedStart = num(config, "bedtimeStart", 21 * 60);
+  const bedEnd = num(config, "bedtimeEnd", 7 * 60);
+  const scheduleOn = config.scheduleEnabled === true;
+  const merge = (start, end) => {
+    if (!scheduleOn) return [bedEnd, bedStart];
+    if (bedEnd < bedStart && start < end) {
+      const s = Math.max(start, bedEnd);
+      const e = Math.min(end, bedStart);
+      if (s < e) return [s, e];
+    }
+    return [start, end];
+  };
+  const [wdStart, wdEnd] = merge(num(config, "weekdayStart", TIME_DEFAULTS.weekdayStart), num(config, "weekdayEnd", TIME_DEFAULTS.weekdayEnd));
+  const [weStart, weEnd] = merge(num(config, "weekendStart", TIME_DEFAULTS.weekendStart), num(config, "weekendEnd", TIME_DEFAULTS.weekendEnd));
+  return { scheduleEnabled: true, weekdayStart: wdStart, weekdayEnd: wdEnd, weekendStart: weStart, weekendEnd: weEnd, bedtimeEnabled: false };
+}
+
+// ---- Parent mode ----
+
+/** The first 6:00 AM at least an hour after [from]. Same rule as on the TV. */
+export function parentCutoff(from) {
+  const start = new Date(from + HOUR_MS);
+  const cutoff = new Date(start.getFullYear(), start.getMonth(), start.getDate(), PARENT_CUTOFF_HOUR, 0, 0, 0);
+  if (cutoff.getTime() <= start.getTime()) cutoff.setDate(cutoff.getDate() + 1);
+  return cutoff.getTime();
+}
+
+/** When parent mode ends, if it's on now; otherwise 0. */
+export function parentActiveUntil(config, now) {
+  const from = num(config, "parentFrom", 0);
+  if (from <= 0) return 0;
+  const until = Math.min(num(config, "parentUntil", 0), parentCutoff(from));
+  return now >= from && now < until ? until : 0;
 }
 
 /** Ring colour for today's use. */

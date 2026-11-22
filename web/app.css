@@ -1,11 +1,11 @@
 :root {
   --bg: #F4F6F9; --card: #FFFFFF; --text: #17202A; --muted: #6B7785; --line: #E3E8EE; --chip: #EEF2F6;
-  --accent: #3B82F6; --ok: #1F9D55; --warn: #D97706; --bad: #E5484D;
+  --accent: #3B82F6; --parent: #7C3AED; --ok: #1F9D55; --warn: #D97706; --bad: #E5484D;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #0E1319; --card: #18202A; --text: #EEF2F6; --muted: #8D99A6; --line: #26313D; --chip: #222C38;
-    --accent: #5B9BFF; --ok: #34C77B; --warn: #F5A524; --bad: #FF6B6F; }
+    --accent: #5B9BFF; --parent: #8B5CF6; --ok: #34C77B; --warn: #F5A524; --bad: #FF6B6F; }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
@@ -81,7 +81,7 @@ i.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 15%, transp
 .chart .today .barv { background: var(--warn); }
 
 .field { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
-.field > span:first-child { width: 68px; flex: none; white-space: nowrap; font-size: 15px; }
+.field > span:first-child { width: 92px; flex: none; white-space: nowrap; font-size: 15px; }
 .field input { font: inherit; border: 0; border-radius: 10px; background: var(--chip); color: var(--text); padding: 9px 10px; }
 .field input[type=number] { width: 90px; }
 .field input[type=time] { flex: 1; min-width: 0; padding: 9px 6px; font-size: 15px; }
@@ -121,3 +121,13 @@ nav button.on { color: var(--accent); font-weight: 700; }
 .pad button { height: 56px; border: 0; border-radius: 14px; background: var(--chip); color: var(--text); font-size: 24px; cursor: pointer; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 90px); background: #17202A;
   color: #fff; padding: 11px 16px; border-radius: 14px; z-index: 30; max-width: 90vw; text-align: center; font-size: 15px; }
+.summary-text { margin: 0; white-space: pre-line; font-weight: 600; }
+.pre { white-space: pre-line; margin: 0 0 12px; }
+.card.parent.on { background: var(--parent); color: #fff; }
+.card.parent.on .muted { color: #ffffffe6; }
+.card.parent.on .btn.soft { background: #ffffff2e; color: #fff; }
+.tone-parent { color: var(--parent); background: color-mix(in srgb, var(--parent) 14%, transparent); }
+.usage .name.parent-row { color: var(--parent); }
+.choice { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.choice:first-child { border-top: 0; }
+.choice input { width: 20px; height: 20px; accent-color: var(--parent); }
