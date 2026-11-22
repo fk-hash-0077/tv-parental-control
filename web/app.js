@@ -98,7 +98,7 @@ function show(section) {
 
 const tabs = [
   ["tabHome", ""],
-  ["tabLimits", "Limits & hours"],
+  ["tabLimits", "TV time"],
   ["tabApps", "Apps"],
   ["tabCode", "Unlock code"],
   ["tabFamily", "Family"],
@@ -256,7 +256,7 @@ function attach() {
     detach();
     setTimeout(waitForApproval, 2000);
   }));
-  listen("config", (v) => { config = v || {}; });
+  listen("config", (v) => { config = v || {}; migrateBedtime(); });
   listen("status", (v) => { status = v; });
   listen("apps", (v) => {
     const list = Array.isArray(v) ? v : Object.values(v || {});
@@ -350,7 +350,7 @@ function render() {
   if (stops.length === 0) return;
   const t = today();
   $("scheduleSwitch").checked = config.scheduleEnabled === true;
-  $("bedtimeSwitch").checked = config.bedtimeEnabled === true;
+  $("tvTimeSummary").textContent = L.tvTimeSummary(config);
   $("installsSwitch").checked = config.installsAllowed === true;
   $("allowSwitch").checked = config.unblockedDate === t;
   if (document.activeElement !== $("weekdayLimit")) $("weekdayLimit").value = num("dailyLimitMinutes", 120);
@@ -365,7 +365,9 @@ function render() {
     ? "Set. It works once, then you set a new one."
     : "Off. Set one for when your phone isn't around.";
   renderPhoto("photo", "photoAt", "when weekday TV time is used up");
-  renderPhoto("bedtimePhoto", "bedtimePhotoAt", "during bedtime");
+  renderPhoto("bedtimePhoto", "bedtimePhotoAt", "outside TV hours");
+  renderParentMode();
+  $("lockNowHistory").textContent = L.lockNowLines(config, dayTime).join("\n");
   renderRequest();
   renderHome();
   renderUsage();
@@ -383,12 +385,13 @@ function renderHome() {
   const locked = s.locked === true;
   const left = Math.max(0, limit - used);
   const tone = L.ringTone(used, limit, locked);
+  const parent = L.parentActiveUntil(config, Date.now()) > 0;
   const fraction = limit > 0 ? Math.min(1, used / limit) : 0;
   $("ringArc").style.strokeDasharray = `${(fraction * 339.3).toFixed(1)} 340`;
-  $("ringArc").style.stroke = `var(--${tone})`;
+  $("ringArc").style.stroke = `var(--${parent ? "parent" : tone})`;
   $("ringValue").textContent = L.formatShort(used);
   $("ringLabel").textContent = limit > 0 ? `of ${L.formatShort(limit)} today` : "today, no limit";
-  $("leftLabel").textContent = limit > 0 ? "Left today" : "Daily limit";
+  $("leftLabel").textContent = parent ? "Kids' time left (paused)" : limit > 0 ? "Left today" : "Daily limit";
   $("leftValue").textContent = limit > 0 ? L.formatMinutes(left) : "Off";
   $("leftValue").style.color = limit > 0 ? `var(--${tone})` : "var(--muted)";
   renderNowPlaying(locked);
@@ -397,14 +400,15 @@ function renderHome() {
   $("connection").textContent = conn.synced;
   const pills = [pill(`● ${conn.pill}`, conn.tone)];
   if (status) {
-    const lock = L.lockPill(s.reason);
+    const lock = L.lockPill(s.reason, L.lockedByShort(config, uid, Date.now(), formatWhen));
     pills.push(pill(lock.text, lock.tone));
     if (typeof s.overrideUntil === "number" && s.overrideUntil > Date.now()) {
       pills.push(pill(`Unlocked until ${formatWhen(s.overrideUntil)}`, "warn"));
     }
   }
-  if (config.bedtimeEnabled === true && s.reason !== "bedtime") {
-    pills.push(pill(`Bedtime ${L.formatTime(num("bedtimeStart", L.TIME_DEFAULTS.bedtimeStart))}`, "warn"));
+  if (parent) pills.push(pill("👤 Parent mode", "parent"));
+  else if (config.scheduleEnabled === true && !s.reason) {
+    pills.push(pill(`TV hours end ${L.formatTime(L.hoursToday(config)[1])}`, "warn"));
   }
   $("pills").replaceChildren(...pills);
 
@@ -452,7 +456,9 @@ function renderRequest() {
 }
 
 function renderUsage() {
+  const parentMinutes = status && typeof status.parentMinutesToday === "number" ? status.parentMinutesToday : 0;
   const rows = L.todaysApps(usage, today());
+  if (parentMinutes > 0) rows.push({ label: PARENT_ROW, pkg: null, minutes: parentMinutes });
   const list = $("usageList");
   if (rows.length === 0) {
     list.replaceChildren(el("div", { class: "muted", textContent: "Nothing watched yet today" }));
@@ -461,7 +467,7 @@ function renderUsage() {
   const max = Math.max(1, ...rows.map((r) => r.minutes));
   const blocked = new Set(L.packages(config));
   list.replaceChildren(...rows.map((r) => el("div", { class: "usage" },
-    el("span", { class: "name", textContent: r.label },
+    el("span", { class: `name${r.label === PARENT_ROW ? " parent-row" : ""}`, textContent: r.label },
       r.pkg && blocked.has(r.pkg) && !(status && status.appsAllowed === true) ? pill("Blocked", "bad", true) : null),
     el("span", { class: "track" }, el("div", { class: "fill", style: `width:${(r.minutes / max) * 100}%` })),
     el("span", { class: "mins", textContent: L.formatMinutes(r.minutes) }),
@@ -498,7 +504,7 @@ function renderTvCard() {
   $("diagConnection").style.color = `var(--${conn.tone})`;
   const s = status || {};
   const update = s.update || "";
-  $("updateLabel").textContent = [typeof s.versionCode === "number" ? `Version ${s.versionCode}` : null, update || null]
+  $("updateLabel").textContent = [typeof s.versionCode === "number" ? `Version ${L.versionLabel(s.versionName, s.versionCode)}` : null, update || null]
     .filter(Boolean).join(" · ") || "Waiting for the TV";
   if (updateAskedAt && update !== updateTextAtAsk &&
     /^(Updated to|Up to date|Update failed|No TV update)/.test(update)) {
@@ -548,12 +554,99 @@ function renderPhones() {
     const name = (info && info.name) || "Phone";
     return el("div", { class: "phone" },
       el("span", { textContent: phoneUid === uid ? `${name} (this phone)` : name }),
-      phoneUid === uid ? null : el("button", { class: "link", textContent: "Remove", onclick: async () => {
+      phoneUid === uid ? el("button", { class: "link rename", textContent: "Rename", onclick: () => renamePhone(name) })
+        : el("button", { class: "link", textContent: "Remove", onclick: async () => {
         if (!confirm(`Remove ${name}? It will need approval to pair again.`)) return;
         await cloud.remove(device(`tokens/${phoneUid}`)).catch(() => {});
         await cloud.remove(device(`parents/${phoneUid}`)).catch((e) => toast(`Couldn't remove: ${e.message}`));
       } }));
   }));
+}
+
+/** The name the TV shows when this phone locks it ("Locked by …"), and in the phones list. */
+async function renamePhone(current) {
+  const name = (prompt("Name this phone. The TV shows this name when this phone locks it, for example \"Mom's iPhone\".", current) || "").trim();
+  if (!name) return;
+  store.set("name", name);
+  try {
+    await cloud.set(device(`parents/${uid}/name`), name.slice(0, 40));
+  } catch (e) {
+    toast(`Couldn't save: ${e.message}`);
+  }
+}
+
+/** This phone's name as the parents list has it. */
+function myPhoneName() {
+  return (parents[uid] && parents[uid].name) || store.get("name") || L.deviceName(navigator.userAgent);
+}
+
+const dayTime = (ms) => L.formatDayTime(ms, Date.now(), formatWhen);
+
+// ---------- Parent mode ----------
+
+const PARENT_ROW = "👤 Parent time";
+
+function renderParentMode() {
+  const until = L.parentActiveUntil(config, Date.now());
+  const on = until > 0;
+  $("parentCard").classList.toggle("on", on);
+  $("parentTitle").textContent = on ? `👤 Parent mode on · ends ${formatWhen(until)}` : "👤 Parent mode";
+  $("parentDetail").textContent = on
+    ? "No limits or blocked apps on the TV. This time isn't counted."
+    : "No limits, no blocked apps. Your watching won't count. It always ends by 6:00 AM.";
+  $("parentOn").hidden = on;
+  $("parentActive").hidden = !on;
+}
+
+let parentOptions = [];
+function chooseParentMode() {
+  const now = Date.now();
+  const cutoff = L.parentCutoff(now);
+  parentOptions = [1, 2, 3].map((h) => ({
+    label: `${h} hour${h > 1 ? "s" : ""}, until ${formatWhen(Math.min(now + h * L.HOUR_MS, cutoff))}`,
+    length: h * L.HOUR_MS,
+  }));
+  parentOptions.push({ label: `Until I turn it off (ends by ${formatWhen(cutoff)})`, length: Infinity });
+  $("parentChoices").replaceChildren(...parentOptions.map((o, i) => el("label", { class: "choice" },
+    el("input", { type: "radio", name: "parentLength", value: String(i), checked: i === 1 }),
+    el("span", { textContent: o.label }))));
+  $("parentSheet").hidden = false;
+}
+
+function confirmParentMode() {
+  const picked = document.querySelector("input[name=parentLength]:checked");
+  const option = parentOptions[picked ? Number(picked.value) : 1];
+  const start = Date.now();
+  const until = Math.min(start + option.length, L.parentCutoff(start));
+  write({ parentFrom: start, parentUntil: until });
+  $("parentSheet").hidden = true;
+  toast(`Parent mode on until ${formatWhen(until)}. The TV unlocks in a moment.`);
+}
+
+function extendParentMode() {
+  const until = L.parentActiveUntil(config, Date.now());
+  if (!until) return;
+  const cutoff = L.parentCutoff(num("parentFrom", 0));
+  const newUntil = Math.min(until + L.HOUR_MS, cutoff);
+  if (newUntil <= until) { toast(`Parent mode can't go past ${formatWhen(cutoff)}.`); return; }
+  write({ parentUntil: newUntil });
+  toast(`Parent mode on until ${formatWhen(newUntil)}`);
+}
+
+function endParentMode() {
+  if (!confirm("End parent mode now? The kids' rules come back. If their TV time is used up, the TV locks.")) return;
+  write({ parentUntil: Date.now() });
+  toast("Parent mode ended");
+}
+
+/** Moves an old bedtime into TV hours once, like the Android app does. */
+let migratedBedtime = false;
+function migrateBedtime() {
+  const updates = migratedBedtime ? null : L.bedtimeMigration(config);
+  if (!updates) return;
+  migratedBedtime = true;
+  write(updates);
+  toast(`Bedtime is now part of TV hours: school days ${L.formatTime(updates.weekdayStart)} to ${L.formatTime(updates.weekdayEnd)}, weekend ${L.formatTime(updates.weekendStart)} to ${L.formatTime(updates.weekendEnd)}.`);
 }
 
 // ---------- Unlock code ----------
@@ -657,10 +750,15 @@ function wire() {
   $("bonus30").onclick = () => addBonus(30);
   $("bonusClear").onclick = () => write({ bonusDate: "", bonusMinutes: 0 });
   $("lockNow").onclick = () => {
-    if (config.lockNow === true) { write({ lockNow: false }); toast("Unlocking the TV"); return; }
+    if (config.lockNow === true) {
+      write({ lockNow: false, lockNowOffBy: myPhoneName(), lockNowOffAt: Date.now() });
+      toast("Unlocking the TV");
+      return;
+    }
     if (!confirm("Lock the TV now? It stays locked until you unlock it here.")) return;
     // Also cancels any extra time given earlier, so the lock takes effect at once.
-    write({ lockNow: true, overrideUntil: 0 });
+    // Who locked it shows on the TV's lock screen.
+    write({ lockNow: true, overrideUntil: 0, lockNowBy: myPhoneName(), lockNowByUid: uid || "", lockNowAt: Date.now() });
     toast("Locking the TV");
   };
   $("unblockTile").onclick = () => {
@@ -686,7 +784,11 @@ function wire() {
     });
   });
   $("scheduleSwitch").onchange = (e) => write({ scheduleEnabled: e.target.checked });
-  $("bedtimeSwitch").onchange = (e) => write({ bedtimeEnabled: e.target.checked });
+  $("parentOn").onclick = chooseParentMode;
+  $("parentMore").onclick = extendParentMode;
+  $("parentEnd").onclick = endParentMode;
+  $("parentCancel").onclick = () => { $("parentSheet").hidden = true; };
+  $("parentConfirm").onclick = confirmParentMode;
   $("installsSwitch").onchange = (e) => write({ installsAllowed: e.target.checked });
   $("allowSwitch").onchange = (e) => write({ unblockedDate: e.target.checked ? today() : "" });
   $("saveApps").onclick = async () => {

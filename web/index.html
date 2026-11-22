@@ -105,6 +105,14 @@
           <div id="warnings" class="warn-text" hidden></div>
         </div>
 
+        <div id="parentCard" class="card parent">
+          <h2 id="parentTitle">👤 Parent mode</h2>
+          <p id="parentDetail" class="muted"></p>
+          <button id="parentOn" class="btn soft">Turn on</button>
+          <div class="row" id="parentActive" hidden><button id="parentMore" class="btn soft">+1 hour</button>
+            <button id="parentEnd" class="btn soft">End now</button></div>
+        </div>
+
         <div class="tiles">
           <button class="tile" id="bonus15"><i class="accent">+15</i>15 min</button>
           <button class="tile" id="bonus30"><i class="accent">+30</i>30 min</button>
@@ -120,25 +128,21 @@
         <div class="card"><div id="historyChart" class="chart"></div></div>
       </div>
 
-      <!-- Limits -->
+      <!-- TV time -->
       <div class="tab" id="tabLimits" hidden>
+        <div class="card"><p id="tvTimeSummary" class="summary-text"></p></div>
         <div class="card">
-          <h2>Daily TV time</h2>
-          <p class="muted">Total minutes per day. 0 means no limit.</p>
+          <label class="switch-row"><span><b>TV hours: when</b><br><span class="muted">The TV rests outside these hours. The end time is bedtime.</span></span>
+            <input type="checkbox" id="scheduleSwitch" class="switch"></label>
+          <div class="field"><span>School days</span><input type="time" data-time="weekdayStart"> to <input type="time" data-time="weekdayEnd"></div>
+          <div class="field"><span>Weekend</span><input type="time" data-time="weekendStart"> to <input type="time" data-time="weekendEnd"></div>
+        </div>
+        <div class="card">
+          <h2>Daily TV time: how much</h2>
+          <p class="muted">Minutes per day inside TV hours. 0 means no limit.</p>
           <div class="field"><span>Mon–Fri</span><input id="weekdayLimit" type="number" inputmode="numeric" min="0" max="1440"> <span class="muted">min</span></div>
           <div class="field"><span>Sat–Sun</span><input id="weekendLimit" type="number" inputmode="numeric" min="0" max="1440"> <span class="muted">min</span></div>
           <button id="saveLimits" class="btn">Save</button>
-        </div>
-        <div class="card">
-          <label class="switch-row"><span><b>Allowed hours</b><br><span class="muted">The TV locks outside these hours.</span></span>
-            <input type="checkbox" id="scheduleSwitch" class="switch"></label>
-          <div class="field"><span>Mon–Fri</span><input type="time" data-time="weekdayStart"> – <input type="time" data-time="weekdayEnd"></div>
-          <div class="field"><span>Sat–Sun</span><input type="time" data-time="weekendStart"> – <input type="time" data-time="weekendEnd"></div>
-        </div>
-        <div class="card">
-          <label class="switch-row"><span><b>Bedtime</b><br><span class="muted">The whole TV locks every night.</span></span>
-            <input type="checkbox" id="bedtimeSwitch" class="switch"></label>
-          <div class="field"><span>Every day</span><input type="time" data-time="bedtimeStart"> – <input type="time" data-time="bedtimeEnd"></div>
         </div>
       </div>
 
@@ -172,7 +176,7 @@
         </div>
         <div class="card">
           <h2>Unlocks for 30 minutes</h2>
-          <p class="muted">Works for bedtime, time limit and allowed hours. Both parents get a notice when it's used.</p>
+          <p class="muted">Works outside TV hours, after TV time runs out, and when a phone locked it. Both parents get a notice when it's used.</p>
         </div>
         <div class="card">
           <h2>Emergency unlock code</h2>
@@ -195,7 +199,7 @@
             <button class="btn soft danger photo-remove" hidden>Remove photo</button></div>
         </div>
         <div class="card" data-photo="bedtimePhoto">
-          <h2>Bedtime photo</h2>
+          <h2>TV resting photo</h2>
           <p class="muted photo-label"></p>
           <div class="row"><button class="btn soft photo-choose">Choose photo</button>
             <button class="btn soft danger photo-remove" hidden>Remove photo</button></div>
@@ -209,6 +213,7 @@
           <h2>TV Guard on the TV</h2>
           <p id="diagConnection" class="strong"></p>
           <p id="updateLabel" class="muted"></p>
+          <p id="lockNowHistory" class="muted small pre"></p>
           <div class="row"><button id="syncNow" class="btn soft">Sync now</button>
             <button id="updateTv" class="btn soft">Update TV</button></div>
         </div>
@@ -220,7 +225,7 @@
 
   <nav id="bottomNav" hidden>
     <button data-tab="0" class="on"><b>⌂</b>Home</button>
-    <button data-tab="1"><b>⏱</b>Limits</button>
+    <button data-tab="1"><b>⏱</b>TV time</button>
     <button data-tab="2"><b>▦</b>Apps</button>
     <button data-tab="3"><b>🔑</b>Unlock code</button>
     <button data-tab="4"><b>☺</b>Family</button>
@@ -244,6 +249,15 @@
         <span></span><button data-arrow="1">↓</button><span></span>
       </div>
       <div class="row"><button id="padCancel" class="btn soft">Cancel</button><button id="padSave" class="btn">Save</button></div>
+    </div>
+  </div>
+
+  <div id="parentSheet" class="sheet-wrap" hidden>
+    <div class="sheet">
+      <h2>Turn on parent mode</h2>
+      <p class="muted">No limits, no blocked apps. Your watching won't count. It always ends by 6:00 AM.</p>
+      <div id="parentChoices"></div>
+      <div class="row"><button id="parentCancel" class="btn soft">Cancel</button><button id="parentConfirm" class="btn">Turn on</button></div>
     </div>
   </div>
 
