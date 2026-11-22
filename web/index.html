@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TV Guard</title>
+  <meta name="description" content="Parent controls for TV Guard">
+  <meta name="theme-color" content="#F4F6F9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E1319" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TV Guard">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="/app.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main id="content">
+    <header class="top">
+      <div>
+        <div id="greeting" class="muted">Welcome</div>
+        <h1 id="pageTitle">TV Guard</h1>
+      </div>
+    </header>
+    <div id="notice" class="notice" hidden></div>
+
+    <!-- Shown in Safari before the app is on the home screen -->
+    <section id="installSection" hidden>
+      <div class="card">
+        <h2>Add TV Guard to your home screen</h2>
+        <p class="muted">Then it opens like an app, stays signed in, and can show alerts.</p>
+        <ol class="steps">
+          <li>Tap the <b>Share</b> button <span class="share">⬆︎</span> at the bottom of Safari.</li>
+          <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+          <li>Tap <b>Add</b>, then open <b>TV Guard</b> from your home screen.</li>
+        </ol>
+      </div>
+      <button id="skipInstall" class="btn soft">Use it in Safari for now</button>
+    </section>
+
+    <section id="pairSection" hidden>
+      <h2 class="lead">Connect to your TV</h2>
+      <p class="muted">Find the code on the TV Guard screen on the TV.</p>
+      <div class="card">
+        <label class="muted" for="codeInput">Pairing code</label>
+        <input id="codeInput" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false"
+          placeholder="XXXX-XXXX-XXXX" inputmode="text">
+        <label class="muted" for="nameInput">Your name (shown to the other parent)</label>
+        <input id="nameInput" class="text-input" maxlength="40" placeholder="Mom's iPhone">
+      </div>
+      <button id="pairButton" class="btn">Pair with TV</button>
+    </section>
+
+    <section id="waitSection" hidden>
+      <div class="card wait">
+        <div class="big">⏳</div>
+        <h2>Waiting for approval</h2>
+        <p class="muted">We sent a request to the parent phone already paired with this TV. It can approve under
+          Family in TV Guard. This screen continues by itself.</p>
+      </div>
+      <button id="cancelWait" class="btn soft">Cancel</button>
+    </section>
+
+    <section id="controlSection" hidden>
+      <!-- Home -->
+      <div class="tab" id="tabHome">
+        <div id="requestCard" class="card request" hidden>
+          <h2>The TV is asking for more time</h2>
+          <p id="requestLabel" class="muted"></p>
+          <div class="row">
+            <button class="btn" data-answer="15">+15 min</button>
+            <button class="btn" data-answer="30">+30 min</button>
+            <button class="btn soft" data-answer="0">No</button>
+          </div>
+        </div>
+        <div class="pendingList"></div>
+        <div id="pushCard" class="card hint" hidden>
+          <h2>Get alerts on this phone</h2>
+          <p id="pushText" class="muted">Hear about "more time" requests, time used up, and unlocks.</p>
+          <button id="pushButton" class="btn">Turn on alerts</button>
+        </div>
+
+        <div class="card">
+          <div id="pills" class="pills"></div>
+          <div class="summary">
+            <svg id="ring" viewBox="0 0 130 130" aria-hidden="true">
+              <circle cx="65" cy="65" r="54" class="track"/>
+              <circle cx="65" cy="65" r="54" class="arc" id="ringArc" transform="rotate(-90 65 65)"/>
+            </svg>
+            <div class="ring-text"><b id="ringValue">–</b><span id="ringLabel" class="muted"></span></div>
+            <div class="side">
+              <div id="leftLabel" class="muted">Left today</div>
+              <div id="leftValue" class="left">–</div>
+              <div class="muted small-gap">Now watching</div>
+              <div id="nowTitle" class="strong">–</div>
+              <div id="nowDetail" class="muted small"></div>
+              <button id="connection" class="link small">Tap to sync ⟳</button>
+            </div>
+          </div>
+          <div id="syncResult" class="muted small" hidden></div>
+          <div id="warnings" class="warn-text" hidden></div>
+        </div>
+
+        <div class="tiles">
+          <button class="tile" id="bonus15"><i class="accent">+15</i>15 min</button>
+          <button class="tile" id="bonus30"><i class="accent">+30</i>30 min</button>
+          <button class="tile" id="lockNow"><i class="bad" id="lockNowIcon">🔒</i><span id="lockNowLabel">Lock now</span></button>
+          <button class="tile" id="unblockTile"><i class="ok" id="unblockIcon">▶</i><span id="unblockLabel">Unblock apps</span></button>
+        </div>
+        <div class="bonus-row"><span id="bonusLabel" class="muted small"></span>
+          <button id="bonusClear" class="link small" hidden>Clear bonus</button></div>
+
+        <h3 class="section">Today by app</h3>
+        <div class="card" id="usageList"></div>
+        <h3 class="section">Last 7 days</h3>
+        <div class="card"><div id="historyChart" class="chart"></div></div>
+      </div>
+
+      <!-- Limits -->
+      <div class="tab" id="tabLimits" hidden>
+        <div class="card">
+          <h2>Daily TV time</h2>
+          <p class="muted">Total minutes per day. 0 means no limit.</p>
+          <div class="field"><span>Mon–Fri</span><input id="weekdayLimit" type="number" inputmode="numeric" min="0" max="1440"> <span class="muted">min</span></div>
+          <div class="field"><span>Sat–Sun</span><input id="weekendLimit" type="number" inputmode="numeric" min="0" max="1440"> <span class="muted">min</span></div>
+          <button id="saveLimits" class="btn">Save</button>
+        </div>
+        <div class="card">
+          <label class="switch-row"><span><b>Allowed hours</b><br><span class="muted">The TV locks outside these hours.</span></span>
+            <input type="checkbox" id="scheduleSwitch" class="switch"></label>
+          <div class="field"><span>Mon–Fri</span><input type="time" data-time="weekdayStart"> – <input type="time" data-time="weekdayEnd"></div>
+          <div class="field"><span>Sat–Sun</span><input type="time" data-time="weekendStart"> – <input type="time" data-time="weekendEnd"></div>
+        </div>
+        <div class="card">
+          <label class="switch-row"><span><b>Bedtime</b><br><span class="muted">The whole TV locks every night.</span></span>
+            <input type="checkbox" id="bedtimeSwitch" class="switch"></label>
+          <div class="field"><span>Every day</span><input type="time" data-time="bedtimeStart"> – <input type="time" data-time="bedtimeEnd"></div>
+        </div>
+      </div>
+
+      <!-- Apps -->
+      <div class="tab" id="tabApps" hidden>
+        <div class="card">
+          <label class="switch-row"><span><b>Unblock them for today</b><br><span class="muted">They block again at midnight.</span></span>
+            <input type="checkbox" id="allowSwitch" class="switch"></label>
+        </div>
+        <div class="card">
+          <h2>Blocked apps</h2>
+          <p class="muted">Ticked apps can't open on the TV.</p>
+          <div id="appChoices"></div>
+          <button id="saveApps" class="btn" hidden>Save</button>
+        </div>
+        <div class="card">
+          <label class="switch-row"><span><b>Allow installing and updating apps</b><br><span class="muted">When off, nothing can be
+            installed from the Play Store or the home screen. TV Guard can still update itself.</span></span>
+            <input type="checkbox" id="installsSwitch" class="switch"></label>
+        </div>
+      </div>
+
+      <!-- Unlock code -->
+      <div class="tab" id="tabCode" hidden>
+        <p class="muted">Press these arrows on the TV remote at the lock screen, then OK. Nothing shows on the TV while
+          you type. Works once, even if the TV is offline.</p>
+        <div class="card center">
+          <div id="arrows" class="arrows"></div>
+          <div id="codeTimer" class="muted">–</div>
+          <div class="bar"><div id="codeBar"></div></div>
+        </div>
+        <div class="card">
+          <h2>Unlocks for 30 minutes</h2>
+          <p class="muted">Works for bedtime, time limit and allowed hours. Both parents get a notice when it's used.</p>
+        </div>
+        <div class="card">
+          <h2>Emergency unlock code</h2>
+          <p id="emergencyLabel" class="muted"></p>
+          <button id="emergencyButton" class="btn soft">Set emergency code</button>
+        </div>
+      </div>
+
+      <!-- Family -->
+      <div class="tab" id="tabFamily" hidden>
+        <div class="pendingList"></div>
+        <div class="card">
+          <h2>Paired phones</h2>
+          <div id="phonesList"></div>
+        </div>
+        <div class="card" data-photo="photo">
+          <h2>Time's up photo</h2>
+          <p class="muted photo-label"></p>
+          <div class="row"><button class="btn soft photo-choose">Choose photo</button>
+            <button class="btn soft danger photo-remove" hidden>Remove photo</button></div>
+        </div>
+        <div class="card" data-photo="bedtimePhoto">
+          <h2>Bedtime photo</h2>
+          <p class="muted photo-label"></p>
+          <div class="row"><button class="btn soft photo-choose">Choose photo</button>
+            <button class="btn soft danger photo-remove" hidden>Remove photo</button></div>
+        </div>
+        <div class="card">
+          <h2>Face ID lock</h2>
+          <p id="faceIdLabel" class="muted"></p>
+          <button id="faceIdButton" class="btn soft">Turn on</button>
+        </div>
+        <div class="card">
+          <h2>TV Guard on the TV</h2>
+          <p id="diagConnection" class="strong"></p>
+          <p id="updateLabel" class="muted"></p>
+          <div class="row"><button id="syncNow" class="btn soft">Sync now</button>
+            <button id="updateTv" class="btn soft">Update TV</button></div>
+        </div>
+        <button id="unpairButton" class="btn soft danger">Unpair this phone</button>
+        <input type="file" id="photoInput" accept="image/*" hidden>
+      </div>
+    </section>
+  </main>
+
+  <nav id="bottomNav" hidden>
+    <button data-tab="0" class="on"><b>⌂</b>Home</button>
+    <button data-tab="1"><b>⏱</b>Limits</button>
+    <button data-tab="2"><b>▦</b>Apps</button>
+    <button data-tab="3"><b>🔑</b>Unlock code</button>
+    <button data-tab="4"><b>☺</b>Family</button>
+  </nav>
+
+  <div id="lockOverlay" hidden>
+    <div class="big">🔒</div>
+    <h2>TV Guard is locked</h2>
+    <button id="unlockButton" class="btn">Unlock with Face ID</button>
+  </div>
+
+  <div id="sheet" class="sheet-wrap" hidden>
+    <div class="sheet">
+      <h2>Emergency code</h2>
+      <p class="muted">For when your phone isn't around. Pick 6 to 10 arrows. On the TV lock screen, press them on the
+        remote, then OK. It unlocks the TV for 30 minutes and works once; after that, set a new one here.</p>
+      <div id="padPreview" class="pad-preview">–</div>
+      <div class="pad">
+        <span></span><button data-arrow="0">↑</button><span></span>
+        <button data-arrow="2">←</button><button data-arrow="back">⌫</button><button data-arrow="3">→</button>
+        <span></span><button data-arrow="1">↓</button><span></span>
+      </div>
+      <div class="row"><button id="padCancel" class="btn soft">Cancel</button><button id="padSave" class="btn">Save</button></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+</body>
+</html>

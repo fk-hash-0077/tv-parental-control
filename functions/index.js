@@ -39,6 +39,8 @@ async function notify(deviceId, data) {
     tokens: entries.map(([, token]) => token),
     data: payload,
     android: { priority: "high" },
+    // For the web app on iPhones; its service worker shows the title and body from data.
+    webpush: { headers: { Urgency: "high" } },
   });
   const stale = {};
   response.responses.forEach((result, i) => {

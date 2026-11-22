@@ -29,6 +29,8 @@ Parental controls for a Google TV / Android TV, run from a phone.
   time, parent mode, TV hours and daily TV time, app and install controls, a Protection card
   (any time TV Guard wasn't running, and why), and a weekly report.
   A second parent's phone can pair only once an already-paired phone approves it.
+- **Web app for iPhones** (`web/`) does the same from Safari, added to the home screen. It's
+  published to Firebase Hosting by the workflow, at `https://<project-id>.web.app`.
 - The two talk through Firebase Realtime Database, so the phone works away from home Wi-Fi.
   Instant notifications (limit reached, TV offline, ask for more time, unlocks, new phone,
   Sunday report) use Firebase Cloud Functions, which need Firebase's pay-as-you-go plan but
@@ -120,6 +122,20 @@ on the same Wi-Fi as the TV. Nothing is plugged in.
 Install `phone-debug.apk` on your Android phone, open it, and type the code from the TV.
 The first phone is approved by the TV itself. A second phone waits until an approved phone
 taps **Approve** (in the app or on the notification).
+
+### A parent with an iPhone
+
+iPhones can't install the APK, so they use the web app instead:
+
+1. On the iPhone, open the web app link in **Safari**. The link is shown at the top of the
+   workflow's summary on GitHub (Actions, newest run on `main`), and is usually
+   `https://<project-id>.web.app`.
+2. Tap **Share**, then **Add to Home Screen**, then open **TV Guard** from the home screen.
+3. Type the code from the TV and a name. Approve it on the Android phone.
+4. Tap **Turn on alerts**, and under Family turn on the **Face ID lock**.
+
+Alerts need iOS 16.4 or newer and only work from the home screen icon, not from a Safari tab.
+To preview the screens with made-up data, open the link with `?demo` at the end.
 
 If every paired phone is lost, reset the list from a computer, then pair again:
 
